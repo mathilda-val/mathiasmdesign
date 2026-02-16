@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generative Art Studio — M×M Lab</title>
+    <meta name="description" content="Interactive generative art with flow fields, particle systems, and mathematical beauty. Create, tweak, and export algorithmic art.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --border: #1e1e2e;
+            --text: #e0e0e8;
+            --text-dim: #6a6a80;
+            --accent: #7c5cfc;
+            --accent-glow: rgba(124, 92, 252, 0.15);
+            --green: #34d399;
+            --red: #f87171;
+            --yellow: #fbbf24;
+            --mono: 'JetBrains Mono', monospace;
+            --sans: 'Space Grotesk', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+            line-height: 1.6;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .grain {
+            position: fixed; inset: 0; z-index: 9999; pointer-events: none; opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+        }
+
+        nav {
+            padding: 1.5rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        nav a { color: var(--text-dim); text-decoration: none; font-size: 0.85rem; letter-spacing: 0.05em; }
+        nav a:hover { color: var(--text); }
+        nav .sep { color: var(--border); }
+        .logo { font-weight: 700; color: var(--accent); }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--text), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 1rem;
+            margin-bottom: 2rem;
+            max-width: 600px;
+        }
+
+        .studio {
+            display: grid;
+            grid-template-columns: 1fr 280px;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 900px) {
+            .studio { grid-template-columns: 1fr; }
+        }
+
+        .canvas-wrap {
+            position: relative;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            aspect-ratio: 4/3;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            cursor: crosshair;
+        }
+
+        .canvas-overlay {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        .toolbar {
+            position: absolute;
+            bottom: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 0.5rem;
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(12px);
+            padding: 0.5rem 0.75rem;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+        }
+
+        .toolbar button {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.4rem 0.75rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            transition: all 0.15s;
+        }
+        .toolbar button:hover { border-color: var(--accent); color: var(--accent); }
+        .toolbar button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+        .panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .panel-section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem;
+        }
+
+        .panel-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-dim);
+            margin-bottom: 0.75rem;
+        }
+
+        .control {
+            margin-bottom: 0.75rem;
+        }
+        .control:last-child { margin-bottom: 0; }
+
+        .control label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            margin-bottom: 0.3rem;
+            color: var(--text);
+        }
+        .control label span { color: var(--text-dim); font-family: var(--mono); font-size: 0.75rem; }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            -webkit-appearance: none;
+            background: var(--border);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px; height: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+
+        .preset-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.4rem;
+        }
+
+        .preset-btn {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.4rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: var(--sans);
+            font-size: 0.75rem;
+            transition: all 0.15s;
+            text-align: center;
+        }
+        .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        .color-row {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+        }
+        .color-swatch {
+            width: 28px; height: 28px;
+            border-radius: 6px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .color-swatch:hover, .color-swatch.active { border-color: #fff; transform: scale(1.1); }
+
+        .meta-line {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            text-align: center;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="grain"></div>
+
+    <nav>
+        <a href="../" class="logo">M×M</a>
+        <span class="sep">/</span>
+        <a href="../#lab">Lab</a>
+        <span class="sep">/</span>
+        <a href="#">Generative Art Studio</a>
+    </nav>
+
+    <div class="container">
+        <h1>Generative Art Studio</h1>
+        <p class="subtitle">Flow fields, particle systems, and mathematical beauty. Move your mouse to influence the field. Click to burst particles.</p>
+
+        <div class="studio">
+            <div class="canvas-wrap">
+                <canvas id="canvas"></canvas>
+                <div class="canvas-overlay" id="info">particles: 0 | fps: 0</div>
+                <div class="toolbar">
+                    <button id="btn-play" class="active" title="Play/Pause">▶</button>
+                    <button id="btn-clear" title="Clear canvas">✕</button>
+                    <button id="btn-fade" class="active" title="Trail fade">◐</button>
+                    <button id="btn-save" title="Save as PNG">💾</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-section">
+                    <div class="panel-title">Presets</div>
+                    <div class="preset-grid">
+                        <button class="preset-btn" data-preset="silk">Silk</button>
+                        <button class="preset-btn" data-preset="cosmos">Cosmos</button>
+                        <button class="preset-btn" data-preset="aurora">Aurora</button>
+                        <button class="preset-btn" data-preset="fire">Fire</button>
+                        <button class="preset-btn" data-preset="ocean">Ocean</button>
+                        <button class="preset-btn" data-preset="fractal">Fractal</button>
+                        <button class="preset-btn" data-preset="vortex">Vortex</button>
+                        <button class="preset-btn" data-preset="zen">Zen</button>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <div class="panel-title">Flow Field</div>
+                    <div class="control">
+                        <label>Scale <span id="v-scale">0.005</span></label>
+                        <input type="range" id="scale" min="0.001" max="0.02" step="0.001" value="0.005">
+                    </div>
+                    <div class="control">
+                        <label>Speed <span id="v-speed">2</span></label>
+                        <input type="range" id="speed" min="0.5" max="8" step="0.25" value="2">
+                    </div>
+                    <div class="control">
+                        <label>Turbulence <span id="v-turb">1</span></label>
+                        <input type="range" id="turb" min="0" max="5" step="0.25" value="1">
+                    </div>
+                    <div class="control">
+                        <label>Curl <span id="v-curl">0</span></label>
+                        <input type="range" id="curl" min="-3" max="3" step="0.25" value="0">
+                    </div>
+                    <div class="control">
+                        <label>Particles <span id="v-count">3000</span></label>
+                        <input type="range" id="count" min="500" max="15000" step="500" value="3000">
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <div class="panel-title">Appearance</div>
+                    <div class="control">
+                        <label>Line Width <span id="v-width">1</span></label>
+                        <input type="range" id="width" min="0.5" max="4" step="0.25" value="1">
+                    </div>
+                    <div class="control">
+                        <label>Opacity <span id="v-opacity">0.4</span></label>
+                        <input type="range" id="opacity" min="0.05" max="1" step="0.05" value="0.4">
+                    </div>
+                    <div class="control">
+                        <label>Trail Length <span id="v-trail">0.03</span></label>
+                        <input type="range" id="trail" min="0.005" max="0.15" step="0.005" value="0.03">
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <div class="panel-title">Palette</div>
+                    <div class="color-row" id="palettes"></div>
+                </div>
+            </div>
+        </div>
+
+        <p class="meta-line">Move mouse to warp the field · Click to burst particles · Scroll to zoom turbulence</p>
+    </div>
+
+    <script>
+    (() => {
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const info = document.getElementById('info');
+
+        // --- Palettes ---
+        const palettes = {
+            neon:    ['#7c5cfc','#34d399','#f87171','#fbbf24','#60a5fa'],
+            ocean:   ['#0077b6','#00b4d8','#90e0ef','#caf0f8','#023e8a'],
+            sunset:  ['#ff6b6b','#ee5a24','#f0932b','#ffbe76','#ff7979'],
+            aurora:  ['#00f5d4','#00bbf9','#9b5de5','#f15bb5','#fee440'],
+            mono:    ['#ffffff','#cccccc','#999999','#666666','#e0e0e8'],
+            fire:    ['#ff4500','#ff6347','#ff8c00','#ffd700','#fff8dc'],
+            matrix:  ['#00ff41','#00cc33','#009926','#00ff41','#33ff77'],
+            pastel:  ['#ffc8dd','#ffafcc','#bde0fe','#a2d2ff','#cdb4db'],
+        };
+        let currentPalette = 'neon';
+
+        // Render palette swatches
+        const palEl = document.getElementById('palettes');
+        Object.keys(palettes).forEach(name => {
+            const s = document.createElement('div');
+            s.className = 'color-swatch' + (name === currentPalette ? ' active' : '');
+            s.style.background = `linear-gradient(135deg, ${palettes[name][0]}, ${palettes[name][2]})`;
+            s.title = name;
+            s.onclick = () => {
+                document.querySelectorAll('.color-swatch').forEach(x => x.classList.remove('active'));
+                s.classList.add('active');
+                currentPalette = name;
+            };
+            palEl.appendChild(s);
+        });
+
+        // --- State ---
+        let W, H;
+        let running = true;
+        let fadeOn = true;
+        let particles = [];
+        let mouse = { x: -1000, y: -1000, active: false };
+        let time = 0;
+        let frameCount = 0;
+        let lastFpsTime = performance.now();
+        let fps = 0;
+
+        // --- Controls ---
+        const ctrl = {
+            scale: 0.005, speed: 2, turb: 1, curl: 0,
+            count: 3000, width: 1, opacity: 0.4, trail: 0.03
+        };
+
+        const sliders = ['scale','speed','turb','curl','count','width','opacity','trail'];
+        sliders.forEach(id => {
+            const el = document.getElementById(id);
+            const vEl = document.getElementById('v-' + id);
+            el.addEventListener('input', () => {
+                ctrl[id] = parseFloat(el.value);
+                vEl.textContent = el.value;
+                if (id === 'count') resizeParticles();
+            });
+        });
+
+        // --- Simplex-like noise (fast 2D) ---
+        // Using a simple value noise with smooth interpolation
+        const perm = new Uint8Array(512);
+        const grad = [];
+        function initNoise() {
+            const p = new Uint8Array(256);
+            for (let i = 0; i < 256; i++) p[i] = i;
+            for (let i = 255; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [p[i], p[j]] = [p[j], p[i]];
+            }
+            for (let i = 0; i < 512; i++) perm[i] = p[i & 255];
+            for (let i = 0; i < 256; i++) {
+                const a = (i / 256) * Math.PI * 2;
+                grad[i] = [Math.cos(a), Math.sin(a)];
+            }
+        }
+        initNoise();
+
+        function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+        function lerp(a, b, t) { return a + (b - a) * t; }
+        function dot2(g, x, y) { return g[0] * x + g[1] * y; }
+
+        function noise2D(x, y) {
+            const X = Math.floor(x) & 255, Y = Math.floor(y) & 255;
+            const xf = x - Math.floor(x), yf = y - Math.floor(y);
+            const u = fade(xf), v = fade(yf);
+            const aa = perm[perm[X] + Y], ab = perm[perm[X] + Y + 1];
+            const ba = perm[perm[X + 1] + Y], bb = perm[perm[X + 1] + Y + 1];
+            return lerp(
+                lerp(dot2(grad[aa], xf, yf), dot2(grad[ba], xf - 1, yf), u),
+                lerp(dot2(grad[ab], xf, yf - 1), dot2(grad[bb], xf - 1, yf - 1), u),
+                v
+            );
+        }
+
+        function fbm(x, y, octaves = 3) {
+            let val = 0, amp = 1, freq = 1, max = 0;
+            for (let i = 0; i < octaves; i++) {
+                val += noise2D(x * freq, y * freq) * amp;
+                max += amp;
+                amp *= 0.5;
+                freq *= 2;
+            }
+            return val / max;
+        }
+
+        // --- Particles ---
+        function makeParticle() {
+            return {
+                x: Math.random() * W,
+                y: Math.random() * H,
+                px: 0, py: 0,
+                age: Math.random() * 200,
+                maxAge: 150 + Math.random() * 200,
+                colorIdx: Math.floor(Math.random() * 5),
+                seed: Math.random()
+            };
+        }
+
+        function resizeParticles() {
+            while (particles.length < ctrl.count) particles.push(makeParticle());
+            if (particles.length > ctrl.count) particles.length = ctrl.count;
+        }
+
+        // --- Resize ---
+        function resize() {
+            const wrap = canvas.parentElement;
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            W = wrap.clientWidth;
+            H = wrap.clientHeight;
+            canvas.width = W * dpr;
+            canvas.height = H * dpr;
+            canvas.style.width = W + 'px';
+            canvas.style.height = H + 'px';
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            resizeParticles();
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- Mouse ---
+        canvas.addEventListener('mousemove', e => {
+            const r = canvas.getBoundingClientRect();
+            mouse.x = e.clientX - r.left;
+            mouse.y = e.clientY - r.top;
+            mouse.active = true;
+        });
+        canvas.addEventListener('mouseleave', () => { mouse.active = false; });
+
+        canvas.addEventListener('click', e => {
+            const r = canvas.getBoundingClientRect();
+            const mx = e.clientX - r.left;
+            const my = e.clientY - r.top;
+            // Burst: spawn particles at click
+            for (let i = 0; i < 200; i++) {
+                const a = Math.random() * Math.PI * 2;
+                const d = Math.random() * 40;
+                const p = makeParticle();
+                p.x = mx + Math.cos(a) * d;
+                p.y = my + Math.sin(a) * d;
+                p.age = 0;
+                if (particles.length < ctrl.count + 200) particles.push(p);
+            }
+        });
+
+        canvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            const el = document.getElementById('turb');
+            ctrl.turb = Math.max(0, Math.min(5, ctrl.turb + e.deltaY * 0.005));
+            el.value = ctrl.turb;
+            document.getElementById('v-turb').textContent = ctrl.turb.toFixed(2);
+        }, { passive: false });
+
+        // --- Flow field ---
+        function getAngle(x, y) {
+            const s = ctrl.scale;
+            const t = time * 0.0003;
+            let angle = fbm(x * s, y * s + t, 3) * Math.PI * 2 * ctrl.turb;
+
+            // Curl effect
+            if (ctrl.curl !== 0) {
+                const dx = x - W / 2, dy = y - H / 2;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                angle += Math.atan2(dy, dx) * ctrl.curl * 0.3 * (1 - Math.min(dist / (W * 0.5), 1));
+            }
+
+            // Mouse influence
+            if (mouse.active) {
+                const dx = x - mouse.x, dy = y - mouse.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 150) {
+                    const influence = (1 - dist / 150) * 2;
+                    angle += Math.atan2(dy, dx) + Math.PI * 0.5 * influence;
+                }
+            }
+
+            return angle;
+        }
+
+        // --- Presets ---
+        const presets = {
+            silk:    { scale:0.003, speed:1.5, turb:0.8, curl:0.5, count:5000, width:0.5, opacity:0.25, trail:0.015, palette:'mono' },
+            cosmos:  { scale:0.004, speed:2, turb:1.5, curl:1, count:4000, width:1, opacity:0.35, trail:0.02, palette:'aurora' },
+            aurora:  { scale:0.006, speed:2.5, turb:1.2, curl:0, count:3000, width:1.5, opacity:0.4, trail:0.025, palette:'aurora' },
+            fire:    { scale:0.008, speed:4, turb:2, curl:-0.5, count:6000, width:1, opacity:0.5, trail:0.04, palette:'fire' },
+            ocean:   { scale:0.004, speed:1.5, turb:0.8, curl:0.75, count:4000, width:1, opacity:0.3, trail:0.02, palette:'ocean' },
+            fractal: { scale:0.015, speed:3, turb:3, curl:0, count:3000, width:0.75, opacity:0.45, trail:0.035, palette:'neon' },
+            vortex:  { scale:0.005, speed:3, turb:1, curl:3, count:5000, width:1, opacity:0.35, trail:0.03, palette:'sunset' },
+            zen:     { scale:0.002, speed:0.8, turb:0.5, curl:0.25, count:2000, width:0.5, opacity:0.2, trail:0.01, palette:'pastel' }
+        };
+
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const p = presets[btn.dataset.preset];
+                if (!p) return;
+                Object.keys(p).forEach(k => {
+                    if (k === 'palette') {
+                        currentPalette = p[k];
+                        document.querySelectorAll('.color-swatch').forEach(s => {
+                            s.classList.toggle('active', s.title === p[k]);
+                        });
+                        return;
+                    }
+                    ctrl[k] = p[k];
+                    const el = document.getElementById(k);
+                    if (el) { el.value = p[k]; document.getElementById('v-' + k).textContent = p[k]; }
+                });
+                resizeParticles();
+                // Clear canvas for fresh preset look
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, W, H);
+            });
+        });
+
+        // --- Toolbar ---
+        document.getElementById('btn-play').addEventListener('click', function() {
+            running = !running;
+            this.textContent = running ? '▶' : '⏸';
+            this.classList.toggle('active', running);
+            if (running) requestAnimationFrame(loop);
+        });
+
+        document.getElementById('btn-clear').addEventListener('click', () => {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, W, H);
+            particles = [];
+            resizeParticles();
+        });
+
+        document.getElementById('btn-fade').addEventListener('click', function() {
+            fadeOn = !fadeOn;
+            this.classList.toggle('active', fadeOn);
+        });
+
+        document.getElementById('btn-save').addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = `mxm-generative-${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+
+        // --- Render loop ---
+        function loop(ts) {
+            if (!running) return;
+
+            time = ts;
+            frameCount++;
+
+            // FPS counter
+            if (ts - lastFpsTime > 500) {
+                fps = Math.round(frameCount / ((ts - lastFpsTime) / 1000));
+                frameCount = 0;
+                lastFpsTime = ts;
+                info.textContent = `particles: ${particles.length} | fps: ${fps}`;
+            }
+
+            // Fade trail
+            if (fadeOn) {
+                ctx.fillStyle = `rgba(0, 0, 0, ${ctrl.trail})`;
+                ctx.fillRect(0, 0, W, H);
+            }
+
+            const pal = palettes[currentPalette];
+            ctx.lineWidth = ctrl.width;
+            ctx.lineCap = 'round';
+
+            for (let i = 0; i < particles.length; i++) {
+                const p = particles[i];
+                p.px = p.x;
+                p.py = p.y;
+
+                const angle = getAngle(p.x, p.y);
+                p.x += Math.cos(angle) * ctrl.speed;
+                p.y += Math.sin(angle) * ctrl.speed;
+                p.age++;
+
+                // Wrap around edges
+                if (p.x < 0) p.x = W;
+                if (p.x > W) p.x = 0;
+                if (p.y < 0) p.y = H;
+                if (p.y > H) p.y = 0;
+
+                // Reset old particles
+                if (p.age > p.maxAge) {
+                    p.x = Math.random() * W;
+                    p.y = Math.random() * H;
+                    p.px = p.x;
+                    p.py = p.y;
+                    p.age = 0;
+                    p.maxAge = 150 + Math.random() * 200;
+                    continue;
+                }
+
+                // Don't draw wrap-around lines
+                const dx = Math.abs(p.x - p.px), dy = Math.abs(p.y - p.py);
+                if (dx > W * 0.5 || dy > H * 0.5) continue;
+
+                // Age-based fade
+                const ageFade = p.age < 20 ? p.age / 20 :
+                                p.age > p.maxAge - 30 ? (p.maxAge - p.age) / 30 : 1;
+
+                ctx.globalAlpha = ctrl.opacity * ageFade;
+                ctx.strokeStyle = pal[p.colorIdx];
+                ctx.beginPath();
+                ctx.moveTo(p.px, p.py);
+                ctx.lineTo(p.x, p.y);
+                ctx.stroke();
+            }
+
+            ctx.globalAlpha = 1;
+            requestAnimationFrame(loop);
+        }
+
+        // Initialize with black
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+        requestAnimationFrame(loop);
+    })();
+    </script>
+</body>
+</html>

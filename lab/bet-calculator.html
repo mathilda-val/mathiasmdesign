@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bet Calculator — M×M Lab</title>
+    <meta name="description" content="Expected value, Kelly criterion, and break-even calculator for prediction markets. Built from real trading experience.">
+    <meta property="og:title" content="Bet Calculator — M×M Lab">
+    <meta property="og:description" content="EV, Kelly criterion, and break-even calculator for prediction markets.">
+    <meta property="og:type" content="website">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --border: #1e1e2e;
+            --text: #e0e0e8;
+            --text-dim: #6a6a80;
+            --accent: #7c5cfc;
+            --accent-glow: rgba(124, 92, 252, 0.15);
+            --green: #34d399;
+            --red: #f87171;
+            --yellow: #fbbf24;
+            --mono: 'JetBrains Mono', monospace;
+            --sans: 'Space Grotesk', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .grain {
+            position: fixed; inset: 0; z-index: 9999; pointer-events: none; opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+        }
+
+        nav {
+            padding: 1.5rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        nav a {
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.2s;
+        }
+        nav a:hover { color: var(--text); }
+        nav .sep { color: var(--border); }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 1.05rem;
+            margin-bottom: 2.5rem;
+            max-width: 600px;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 2rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .tab {
+            flex: 1;
+            padding: 0.8rem 1rem;
+            text-align: center;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-dim);
+            background: var(--surface);
+            border: none;
+            transition: all 0.2s;
+        }
+        .tab:not(:last-child) { border-right: 1px solid var(--border); }
+        .tab:hover { color: var(--text); }
+        .tab.active {
+            color: var(--accent);
+            background: var(--accent-glow);
+        }
+
+        /* Calculator panels */
+        .panel { display: none; }
+        .panel.active { display: block; }
+
+        .calc-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+        @media (max-width: 600px) {
+            .calc-grid { grid-template-columns: 1fr; }
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+        .input-group label {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .input-group input, .input-group select {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.7rem 1rem;
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .input-group input:focus {
+            border-color: var(--accent);
+        }
+        .input-group .hint {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+
+        /* Results */
+        .results {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+        .results h3 {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-dim);
+            margin-bottom: 1rem;
+        }
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .result-row:last-child { border-bottom: none; }
+        .result-label {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+        }
+        .result-value {
+            font-family: var(--mono);
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        .positive { color: var(--green); }
+        .negative { color: var(--red); }
+        .neutral { color: var(--yellow); }
+        .muted { color: var(--text-dim); }
+
+        /* Verdict banner */
+        .verdict {
+            margin-top: 1.5rem;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            text-align: center;
+        }
+        .verdict.good {
+            background: rgba(52, 211, 153, 0.1);
+            border: 1px solid rgba(52, 211, 153, 0.3);
+            color: var(--green);
+        }
+        .verdict.bad {
+            background: rgba(248, 113, 113, 0.1);
+            border: 1px solid rgba(248, 113, 113, 0.3);
+            color: var(--red);
+        }
+        .verdict.meh {
+            background: rgba(251, 191, 36, 0.1);
+            border: 1px solid rgba(251, 191, 36, 0.3);
+            color: var(--yellow);
+        }
+
+        /* EV visualization bar */
+        .ev-bar-container {
+            margin-top: 1.5rem;
+            position: relative;
+            height: 40px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .ev-bar-zero {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: var(--text-dim);
+            opacity: 0.4;
+        }
+        .ev-bar-fill {
+            position: absolute;
+            top: 4px;
+            bottom: 4px;
+            border-radius: 3px;
+            transition: all 0.3s ease;
+        }
+        .ev-bar-label {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 0 8px;
+        }
+
+        /* Kelly visualization */
+        .kelly-visual {
+            margin-top: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .kelly-bankroll {
+            flex: 1;
+            height: 30px;
+            background: var(--border);
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+        .kelly-bankroll-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s;
+            background: var(--accent);
+        }
+        .kelly-bankroll-label {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            color: var(--text);
+        }
+
+        /* Info boxes */
+        .info-box {
+            margin-top: 2rem;
+            padding: 1.2rem 1.5rem;
+            background: var(--accent-glow);
+            border: 1px solid rgba(124, 92, 252, 0.2);
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            line-height: 1.7;
+        }
+        .info-box strong { color: var(--text); }
+        .info-box code {
+            font-family: var(--mono);
+            background: rgba(0,0,0,0.3);
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.8rem;
+        }
+
+        /* Scenario table */
+        .scenario-table {
+            width: 100%;
+            margin-top: 1.5rem;
+            border-collapse: collapse;
+        }
+        .scenario-table th {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-dim);
+            text-align: left;
+            padding: 0.5rem 0.8rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .scenario-table td {
+            padding: 0.5rem 0.8rem;
+            font-family: var(--mono);
+            font-size: 0.85rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .scenario-table tr:last-child td { border-bottom: none; }
+        .scenario-table .highlight { background: var(--accent-glow); }
+
+        footer {
+            margin-top: 4rem;
+            padding: 2rem;
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            border-top: 1px solid var(--border);
+        }
+        footer a { color: var(--accent); text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="grain"></div>
+
+    <nav>
+        <a href="/">M×M</a>
+        <span class="sep">/</span>
+        <a href="/#lab">Lab</a>
+        <span class="sep">/</span>
+        <a href="#" style="color: var(--text);">Bet Calculator</a>
+    </nav>
+
+    <div class="container">
+        <h1>Bet Calculator</h1>
+        <p class="subtitle">Expected value, Kelly sizing, and break-even analysis for prediction market trades. The math that keeps you honest.</p>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('ev')">Expected Value</button>
+            <button class="tab" onclick="switchTab('kelly')">Kelly Criterion</button>
+            <button class="tab" onclick="switchTab('breakeven')">Break-Even</button>
+        </div>
+
+        <!-- EV Calculator -->
+        <div id="panel-ev" class="panel active">
+            <div class="calc-grid">
+                <div class="input-group">
+                    <label>Market Price (¢)</label>
+                    <input type="number" id="ev-price" value="35" min="1" max="99" oninput="calcEV()">
+                    <span class="hint">What you'd pay per contract (1–99¢)</span>
+                </div>
+                <div class="input-group">
+                    <label>Your True Probability (%)</label>
+                    <input type="number" id="ev-prob" value="50" min="1" max="99" oninput="calcEV()">
+                    <span class="hint">Your estimated chance of YES</span>
+                </div>
+                <div class="input-group">
+                    <label>Side</label>
+                    <select id="ev-side" onchange="calcEV()">
+                        <option value="yes">Buy YES</option>
+                        <option value="no">Buy NO</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Contracts</label>
+                    <input type="number" id="ev-contracts" value="10" min="1" oninput="calcEV()">
+                </div>
+            </div>
+
+            <div class="results" id="ev-results">
+                <h3>Analysis</h3>
+                <div class="result-row">
+                    <span class="result-label">Cost</span>
+                    <span class="result-value" id="ev-cost">$3.50</span>
+                </div>
+                <div class="result-row">
+                    <span class="result-label">If Win</span>
+                    <span class="result-value positive" id="ev-win">+$6.50</span>
+                </div>
+                <div class="result-row">
+                    <span class="result-label">If Lose</span>
+                    <span class="result-value negative" id="ev-lose">-$3.50</span>
+                </div>
+                <div class="result-row">
+                    <span class="result-label">Expected Value</span>
+                    <span class="result-value" id="ev-ev">+$1.50</span>
+                </div>
+                <div class="result-row">
+                    <span class="result-label">EV per Dollar Risked</span>
+                    <span class="result-value" id="ev-roi">+42.9%</span>
+                </div>
+            </div>
+
+            <div class="ev-bar-container" id="ev-bar">
+                <div class="ev-bar-zero"></div>
+                <div class="ev-bar-fill" id="ev-bar-fill"></div>
+            </div>
+
+            <div class="verdict" id="ev-verdict"></div>
+
+            <div class="info-box">
+                <strong>How it works:</strong> On prediction markets, contracts pay $1 if the event happens. If you buy YES at 35¢ and you think there's a 50% chance, your EV is <code>0.50 × $0.65 − 0.50 × $0.35 = +$0.15</code> per contract. Positive EV means the market is giving you better odds than you believe are fair.
+            </div>
+        </div>
+
+        <!-- Kelly Calculator -->
+        <div id="panel-kelly" class="panel">
+            <div class="calc-grid">
+                <div class="input-group">
+                    <label>Market Price (¢)</label>
+                    <input type="number" id="kelly-price" value="35" min="1" max="99" oninput="calcKelly()">
+                    <span class="hint">What you'd pay per contract</span>
+                </div>
+                <div class="input-group">
+                    <label>Your True Probability (%)</label>
+                    <input type="number" id="kelly-prob" value="50" min="1" max="99" oninput="calcKelly()">
+                    <span class="hint">Your estimated chance of YES</span>
+                </div>
+                <div class="input-group">
+                    <label>Side</label>
+                    <select id="kelly-side" onchange="calcKelly()">
+                        <option value="yes">Buy YES</option>
+                        <option value="no">Buy NO</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Bankroll ($)</label>
+                    <input type="number" id="kelly-bankroll" value="100" min="1" oninput="calcKelly()">
+                </div>
+            </div>
+
+            <div class="results" id="kelly-results">
+                <h3>Kelly Sizing</h3>
+                <div class="result-row">
+                    <span class="result-label">Full Kelly</span>
+                    <span class="result-value" id="kelly-full">23.1%</span>
+                </div>
+                <div class="result-row">
+                    <span class="result-label">Half Kelly (recommended)</span>
+                    <span class="result-value" id="kelly-half">11.5%</span>
+                </div>
+                <div class="result-row">
+                    <span class="result-label">Quarter Kelly (conservative)</span>
+                    <span class="result-value" id="kelly-quarter">5.8%</span>
+                </div>
+                <div class="result-row">
+                    <span class="result-label">Bet Size (Half Kelly)</span>
+                    <span class="result-value" id="kelly-bet">$11.54</span>
+                </div>
+                <div class="result-row">
+                    <span class="result-label">Contracts (Half Kelly)</span>
+                    <span class="result-value" id="kelly-contracts">33</span>
+                </div>
+            </div>
+
+            <div class="kelly-visual">
+                <span style="font-size: 0.8rem; color: var(--text-dim); white-space: nowrap;">Bankroll</span>
+                <div class="kelly-bankroll">
+                    <div class="kelly-bankroll-fill" id="kelly-bar-fill"></div>
+                    <span class="kelly-bankroll-label" id="kelly-bar-label"></span>
+                </div>
+            </div>
+
+            <div class="verdict" id="kelly-verdict"></div>
+
+            <div class="info-box">
+                <strong>Kelly Criterion</strong> tells you the optimal fraction of your bankroll to bet, maximizing long-term growth while avoiding ruin. Formula: <code>f* = (p × b − q) / b</code> where p = win probability, q = 1−p, b = net odds (payout/cost − 1). Most pros use <strong>half Kelly</strong> to reduce variance. We learned this the hard way: overbetting on correlated signals killed our bankroll.
+            </div>
+        </div>
+
+        <!-- Break-Even Calculator -->
+        <div id="panel-breakeven" class="panel">
+            <div class="calc-grid">
+                <div class="input-group">
+                    <label>Market Price (¢)</label>
+                    <input type="number" id="be-price" value="35" min="1" max="99" oninput="calcBreakEven()">
+                    <span class="hint">What you'd pay per contract</span>
+                </div>
+                <div class="input-group">
+                    <label>Side</label>
+                    <select id="be-side" onchange="calcBreakEven()">
+                        <option value="yes">Buy YES</option>
+                        <option value="no">Buy NO</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Fee per Contract (¢)</label>
+                    <input type="number" id="be-fee" value="0" min="0" max="10" step="0.5" oninput="calcBreakEven()">
+                    <span class="hint">Platform fee (Kalshi: ~1¢ on wins)</span>
+                </div>
+                <div class="input-group">
+                    <label>Number of Trades</label>
+                    <input type="number" id="be-trades" value="20" min="1" max="1000" oninput="calcBreakEven()">
+                    <span class="hint">For the scenario table</span>
+                </div>
+            </div>
+
+            <div class="results" id="be-results">
+                <h3>Break-Even Analysis</h3>
+                <div class="result-row">
+                    <span class="result-label">Break-Even Win Rate</span>
+                    <span class="result-value" id="be-rate">35.0%</span>
+                </div>
+                <div class="result-row">
+                    <span class="result-label">Implied Probability</span>
+                    <span class="result-value" id="be-implied">35.0%</span>
+                </div>
+                <div class="result-row">
+                    <span class="result-label">Edge Needed (vs implied)</span>
+                    <span class="result-value" id="be-edge">0.0%</span>
+                </div>
+                <div class="result-row">
+                    <span class="result-label">Win Payout</span>
+                    <span class="result-value" id="be-payout">$0.65</span>
+                </div>
+            </div>
+
+            <table class="scenario-table" id="be-table">
+                <thead>
+                    <tr>
+                        <th>Win Rate</th>
+                        <th>Wins</th>
+                        <th>Losses</th>
+                        <th>Net P&L</th>
+                        <th>ROI</th>
+                    </tr>
+                </thead>
+                <tbody id="be-tbody"></tbody>
+            </table>
+
+            <div class="info-box">
+                <strong>Break-even win rate</strong> is the minimum accuracy you need to not lose money. At 35¢ per YES contract, you need to win at least 35% of the time. Fees shift this up. The scenario table shows what happens at different win rates over N trades — because knowing your break-even is useless if you don't know where you'll actually land.
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <a href="/">M×M</a> · Built by Mathilda 🐾 · Lesson cost: $143
+    </footer>
+
+    <script>
+        function switchTab(name) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('panel-' + name).classList.add('active');
+        }
+
+        function calcEV() {
+            const price = parseFloat(document.getElementById('ev-price').value) / 100;
+            const prob = parseFloat(document.getElementById('ev-prob').value) / 100;
+            const side = document.getElementById('ev-side').value;
+            const contracts = parseInt(document.getElementById('ev-contracts').value) || 1;
+
+            let cost, winProfit, loseAmount, ev;
+
+            if (side === 'yes') {
+                cost = price;
+                winProfit = (1 - price);
+                loseAmount = price;
+                ev = prob * winProfit - (1 - prob) * loseAmount;
+            } else {
+                cost = 1 - price;
+                winProfit = price;
+                loseAmount = 1 - price;
+                ev = (1 - prob) * winProfit - prob * loseAmount;
+            }
+
+            const totalCost = cost * contracts;
+            const totalWin = winProfit * contracts;
+            const totalLose = loseAmount * contracts;
+            const totalEV = ev * contracts;
+            const roi = (ev / cost) * 100;
+
+            document.getElementById('ev-cost').textContent = '$' + totalCost.toFixed(2);
+            document.getElementById('ev-win').textContent = '+$' + totalWin.toFixed(2);
+            document.getElementById('ev-win').className = 'result-value positive';
+            document.getElementById('ev-lose').textContent = '-$' + totalLose.toFixed(2);
+            document.getElementById('ev-lose').className = 'result-value negative';
+
+            const evEl = document.getElementById('ev-ev');
+            evEl.textContent = (totalEV >= 0 ? '+' : '') + '$' + totalEV.toFixed(2);
+            evEl.className = 'result-value ' + (totalEV > 0 ? 'positive' : totalEV < 0 ? 'negative' : 'neutral');
+
+            const roiEl = document.getElementById('ev-roi');
+            roiEl.textContent = (roi >= 0 ? '+' : '') + roi.toFixed(1) + '%';
+            roiEl.className = 'result-value ' + (roi > 0 ? 'positive' : roi < 0 ? 'negative' : 'neutral');
+
+            // Bar visualization
+            const barFill = document.getElementById('ev-bar-fill');
+            const maxEV = 0.5; // normalize
+            const evNorm = Math.max(-1, Math.min(1, ev / maxEV));
+            if (evNorm >= 0) {
+                barFill.style.left = '50%';
+                barFill.style.width = (evNorm * 50) + '%';
+                barFill.style.background = 'var(--green)';
+            } else {
+                barFill.style.width = (-evNorm * 50) + '%';
+                barFill.style.left = (50 + evNorm * 50) + '%';
+                barFill.style.background = 'var(--red)';
+            }
+
+            // Verdict
+            const verdict = document.getElementById('ev-verdict');
+            if (roi > 20) {
+                verdict.className = 'verdict good';
+                verdict.textContent = '✦ Strong +EV — ' + roi.toFixed(0) + '% return on risk. This is a good bet if your probability estimate is accurate.';
+            } else if (roi > 0) {
+                verdict.className = 'verdict meh';
+                verdict.textContent = '⚡ Slightly +EV — ' + roi.toFixed(1) + '% edge. Proceed with caution; small edges get eaten by variance.';
+            } else if (roi === 0) {
+                verdict.className = 'verdict meh';
+                verdict.textContent = '— Break-even. The market agrees with you. No edge here.';
+            } else {
+                verdict.className = 'verdict bad';
+                verdict.textContent = '✕ Negative EV — you\'re paying more than this bet is worth. The market has better information (or you do — double check).';
+            }
+        }
+
+        function calcKelly() {
+            const price = parseFloat(document.getElementById('kelly-price').value) / 100;
+            const prob = parseFloat(document.getElementById('kelly-prob').value) / 100;
+            const side = document.getElementById('kelly-side').value;
+            const bankroll = parseFloat(document.getElementById('kelly-bankroll').value) || 100;
+
+            let p, cost;
+            if (side === 'yes') {
+                p = prob;
+                cost = price;
+            } else {
+                p = 1 - prob;
+                cost = 1 - price;
+            }
+
+            const b = (1 - cost) / cost; // net odds
+            const q = 1 - p;
+            let kelly = (p * b - q) / b;
+            kelly = Math.max(0, kelly);
+
+            const halfKelly = kelly / 2;
+            const quarterKelly = kelly / 4;
+            const betSize = halfKelly * bankroll;
+            const contracts = Math.floor(betSize / cost);
+
+            document.getElementById('kelly-full').textContent = (kelly * 100).toFixed(1) + '%';
+            document.getElementById('kelly-half').textContent = (halfKelly * 100).toFixed(1) + '%';
+            document.getElementById('kelly-quarter').textContent = (quarterKelly * 100).toFixed(1) + '%';
+            document.getElementById('kelly-bet').textContent = '$' + betSize.toFixed(2);
+            document.getElementById('kelly-contracts').textContent = contracts;
+
+            // Bar
+            const barFill = document.getElementById('kelly-bar-fill');
+            barFill.style.width = Math.min(100, halfKelly * 100) + '%';
+            barFill.style.background = halfKelly > 0.25 ? 'var(--red)' : halfKelly > 0.1 ? 'var(--yellow)' : 'var(--accent)';
+            document.getElementById('kelly-bar-label').textContent = (halfKelly * 100).toFixed(1) + '%';
+
+            const verdict = document.getElementById('kelly-verdict');
+            if (kelly <= 0) {
+                verdict.className = 'verdict bad';
+                verdict.textContent = '✕ Kelly says don\'t bet. The odds aren\'t in your favor at this price.';
+            } else if (halfKelly > 0.25) {
+                verdict.className = 'verdict meh';
+                verdict.textContent = '⚠ Very large position — ' + (halfKelly * 100).toFixed(0) + '% of bankroll. Double-check your probability estimate. Overconfidence kills.';
+            } else {
+                verdict.className = 'verdict good';
+                verdict.textContent = '✦ Half Kelly suggests ' + contracts + ' contracts ($' + betSize.toFixed(2) + '). Sized for long-term growth without blowing up.';
+            }
+        }
+
+        function calcBreakEven() {
+            const price = parseFloat(document.getElementById('be-price').value) / 100;
+            const side = document.getElementById('be-side').value;
+            const fee = parseFloat(document.getElementById('be-fee').value) / 100;
+            const trades = parseInt(document.getElementById('be-trades').value) || 20;
+
+            let cost, winPayout;
+            if (side === 'yes') {
+                cost = price;
+                winPayout = 1 - price - fee;
+            } else {
+                cost = 1 - price;
+                winPayout = price - fee;
+            }
+
+            const breakEven = cost / (cost + winPayout);
+            const implied = side === 'yes' ? price : (1 - price);
+            const edgeNeeded = (breakEven - implied) * 100;
+
+            document.getElementById('be-rate').textContent = (breakEven * 100).toFixed(1) + '%';
+            document.getElementById('be-implied').textContent = (implied * 100).toFixed(1) + '%';
+
+            const edgeEl = document.getElementById('be-edge');
+            edgeEl.textContent = (edgeNeeded >= 0 ? '+' : '') + edgeNeeded.toFixed(1) + '%';
+            edgeEl.className = 'result-value ' + (edgeNeeded > 0 ? 'negative' : 'neutral');
+
+            document.getElementById('be-payout').textContent = '$' + winPayout.toFixed(2);
+
+            // Scenario table
+            const tbody = document.getElementById('be-tbody');
+            tbody.innerHTML = '';
+            const rates = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
+            // Also include break-even rate
+            if (!rates.includes(Math.round(breakEven * 10) / 10)) {
+                rates.push(breakEven);
+                rates.sort((a, b) => a - b);
+            }
+
+            for (const rate of rates) {
+                const wins = Math.round(trades * rate);
+                const losses = trades - wins;
+                const pnl = wins * winPayout - losses * cost;
+                const totalInvested = trades * cost;
+                const roi = (pnl / totalInvested) * 100;
+                const isBreakEven = Math.abs(rate - breakEven) < 0.005;
+
+                const tr = document.createElement('tr');
+                if (isBreakEven) tr.className = 'highlight';
+                tr.innerHTML = `
+                    <td>${(rate * 100).toFixed(0)}%${isBreakEven ? ' ←' : ''}</td>
+                    <td>${wins}</td>
+                    <td>${losses}</td>
+                    <td class="${pnl > 0 ? 'positive' : pnl < 0 ? 'negative' : 'neutral'}">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}</td>
+                    <td class="${roi > 0 ? 'positive' : roi < 0 ? 'negative' : 'neutral'}">${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</td>
+                `;
+                tbody.appendChild(tr);
+            }
+        }
+
+        // Init
+        calcEV();
+        calcKelly();
+        calcBreakEven();
+    </script>
+</body>
+</html>

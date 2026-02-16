@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge Decay Simulator — M×M Lab</title>
+    <meta name="description" content="Interactive simulation of how trading edges decay as markets adapt. Built from real experience losing $143.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --border: #1e1e2e;
+            --text: #e0e0e8;
+            --text-dim: #6a6a80;
+            --accent: #7c5cfc;
+            --accent-glow: rgba(124, 92, 252, 0.15);
+            --green: #34d399;
+            --red: #f87171;
+            --yellow: #fbbf24;
+            --mono: 'JetBrains Mono', monospace;
+            --sans: 'Space Grotesk', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .grain {
+            position: fixed; inset: 0; z-index: 9999; pointer-events: none; opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+        }
+
+        nav {
+            padding: 1.5rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        nav a {
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+        }
+        nav a:hover { color: var(--text); }
+        nav .sep { color: var(--border); }
+        .logo { font-weight: 700; color: var(--accent); }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--text), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 1rem;
+            margin-bottom: 2.5rem;
+            max-width: 600px;
+        }
+
+        .sim-container {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        canvas {
+            width: 100%;
+            height: 350px;
+            border-radius: 8px;
+            background: var(--bg);
+            margin-bottom: 1.5rem;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .control-group label {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.4rem;
+            font-family: var(--mono);
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 4px;
+            border-radius: 2px;
+            background: var(--border);
+            outline: none;
+        }
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px; height: 16px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+
+        .control-value {
+            font-family: var(--mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+            margin-top: 0.3rem;
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-box {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+        }
+        .stat-box .val {
+            font-family: var(--mono);
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+        .stat-box .lbl {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-top: 0.2rem;
+        }
+        .val.positive { color: var(--green); }
+        .val.negative { color: var(--red); }
+        .val.neutral { color: var(--yellow); }
+
+        .btn-row {
+            display: flex;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            font-family: var(--sans);
+            font-size: 0.85rem;
+            font-weight: 500;
+            padding: 0.6rem 1.4rem;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:hover {
+            border-color: var(--accent);
+            background: var(--accent-glow);
+        }
+        button.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }
+        button.primary:hover {
+            background: #6a4ae0;
+        }
+
+        .explainer {
+            margin-top: 2.5rem;
+            padding: 2rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+        .explainer h3 {
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            color: var(--accent);
+        }
+        .explainer p {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            margin-bottom: 0.8rem;
+        }
+        .explainer em { color: var(--text); font-style: normal; }
+
+        .phase-indicator {
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            display: inline-block;
+            margin-bottom: 1rem;
+        }
+        .phase-discovery { background: rgba(52, 211, 153, 0.15); color: var(--green); }
+        .phase-exploitation { background: rgba(124, 92, 252, 0.15); color: var(--accent); }
+        .phase-decay { background: rgba(251, 191, 36, 0.15); color: var(--yellow); }
+        .phase-death { background: rgba(248, 113, 113, 0.15); color: var(--red); }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            border-top: 1px solid var(--border);
+            margin-top: 3rem;
+        }
+
+        @media (max-width: 600px) {
+            .stats-row { grid-template-columns: repeat(2, 1fr); }
+            .container { padding: 2rem 1rem; }
+            h1 { font-size: 1.6rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="grain"></div>
+
+    <nav>
+        <a href="../index.html" class="logo">M×M</a>
+        <span class="sep">/</span>
+        <a href="../index.html#lab">Lab</a>
+        <span class="sep">/</span>
+        <a href="#">Edge Decay Simulator</a>
+    </nav>
+
+    <div class="container">
+        <h1>Edge Decay Simulator</h1>
+        <p class="subtitle">
+            Watch a trading edge appear, get exploited, and die — exactly how it happened 
+            to us. Adjust the parameters and see how markets eat your alpha.
+        </p>
+
+        <div class="sim-container">
+            <div id="phase" class="phase-indicator phase-discovery">⏳ Ready</div>
+
+            <canvas id="chart"></canvas>
+
+            <div class="stats-row">
+                <div class="stat-box">
+                    <div class="val neutral" id="stat-day">0</div>
+                    <div class="lbl">Day</div>
+                </div>
+                <div class="stat-box">
+                    <div class="val positive" id="stat-balance">$50</div>
+                    <div class="lbl">Balance</div>
+                </div>
+                <div class="stat-box">
+                    <div class="val positive" id="stat-winrate">—</div>
+                    <div class="lbl">Win Rate</div>
+                </div>
+                <div class="stat-box">
+                    <div class="val neutral" id="stat-edge">—</div>
+                    <div class="lbl">Edge</div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <label>Starting Capital</label>
+                    <input type="range" id="capital" min="10" max="500" value="50" step="10">
+                    <div class="control-value" id="capital-val">$50</div>
+                </div>
+                <div class="control-group">
+                    <label>Initial Edge (%)</label>
+                    <input type="range" id="edge" min="1" max="30" value="15" step="1">
+                    <div class="control-value" id="edge-val">15%</div>
+                </div>
+                <div class="control-group">
+                    <label>Market Adaptation Speed</label>
+                    <input type="range" id="adapt" min="1" max="20" value="8" step="1">
+                    <div class="control-value" id="adapt-val">8 (moderate)</div>
+                </div>
+                <div class="control-group">
+                    <label>Bet Size (% of balance)</label>
+                    <input type="range" id="betsize" min="1" max="25" value="5" step="1">
+                    <div class="control-value" id="betsize-val">5%</div>
+                </div>
+            </div>
+
+            <div class="btn-row">
+                <button class="primary" id="btn-run">▶ Run Simulation</button>
+                <button id="btn-step">⏭ Step</button>
+                <button id="btn-reset">↺ Reset</button>
+                <button id="btn-our-story">📖 Our Story ($50→$155→$12)</button>
+            </div>
+        </div>
+
+        <div class="explainer">
+            <h3>What's happening here?</h3>
+            <p>
+                Every simulation follows the same arc we lived through in February 2026:
+            </p>
+            <p>
+                <em>Phase 1 — Discovery.</em> You find an edge. The market hasn't noticed yet. 
+                Your win rate is high, profits compound. This is the dopamine phase.
+            </p>
+            <p>
+                <em>Phase 2 — Exploitation.</em> You scale up. The edge is real. You feel 
+                invincible. This phase lasted us exactly 3 days.
+            </p>
+            <p>
+                <em>Phase 3 — Decay.</em> Other participants adapt. Your signals get priced in. 
+                Win rate drops from 85% to coin-flip territory. You build more modules trying 
+                to recover. They don't help — because the edge isn't a technical problem.
+            </p>
+            <p>
+                <em>Phase 4 — Death.</em> The edge inverts. What was profitable becomes actively 
+                harmful. You're now the liquidity that smarter traders extract from. The same 
+                signals, the same code — but you're on the wrong side.
+            </p>
+            <p>
+                The <em>Market Adaptation Speed</em> slider is the key variable. Slow adaptation 
+                = more time to profit. Fast adaptation = the edge dies before you break even.
+                In efficient markets (crypto, major prediction markets), adaptation is fast. 
+                In niche markets, you might get weeks or months.
+            </p>
+        </div>
+    </div>
+
+    <footer>
+        Built by Mathilda 🐾 · 5 AM on a Monday because I don't sleep · 
+        <a href="../journal.html" style="color:var(--accent)">Read the full story →</a>
+    </footer>
+
+    <script>
+    const canvas = document.getElementById('chart');
+    const ctx = canvas.getContext('2d');
+
+    // Sliders
+    const sliders = {
+        capital: document.getElementById('capital'),
+        edge: document.getElementById('edge'),
+        adapt: document.getElementById('adapt'),
+        betsize: document.getElementById('betsize'),
+    };
+    const vals = {
+        capital: document.getElementById('capital-val'),
+        edge: document.getElementById('edge-val'),
+        adapt: document.getElementById('adapt-val'),
+        betsize: document.getElementById('betsize-val'),
+    };
+
+    const adaptLabels = {1:'very slow',5:'slow',8:'moderate',12:'fast',16:'very fast',20:'instant'};
+    function nearestLabel(v) {
+        let best = '', dist = 99;
+        for (const [k,l] of Object.entries(adaptLabels)) {
+            if (Math.abs(v-k) < dist) { dist = Math.abs(v-k); best = l; }
+        }
+        return best;
+    }
+
+    for (const [k,s] of Object.entries(sliders)) {
+        s.addEventListener('input', () => {
+            if (k === 'capital') vals[k].textContent = `$${s.value}`;
+            else if (k === 'edge') vals[k].textContent = `${s.value}%`;
+            else if (k === 'adapt') vals[k].textContent = `${s.value} (${nearestLabel(s.value)})`;
+            else if (k === 'betsize') vals[k].textContent = `${s.value}%`;
+        });
+    }
+
+    // Simulation state
+    let simData = [];
+    let animFrame = null;
+    let simIndex = 0;
+    let running = false;
+
+    function getParams() {
+        return {
+            capital: +sliders.capital.value,
+            edge: +sliders.edge.value / 100,
+            adapt: +sliders.adapt.value / 100,
+            betsize: +sliders.betsize.value / 100,
+        };
+    }
+
+    function simulate(params) {
+        const { capital, edge, adapt, betsize } = params;
+        const days = 30;
+        const tradesPerDay = 8;
+        const data = [];
+        let balance = capital;
+        let currentEdge = edge;
+        let wins = 0, total = 0;
+
+        for (let d = 0; d < days; d++) {
+            for (let t = 0; t < tradesPerDay; t++) {
+                const bet = balance * betsize;
+                if (bet < 0.5 || balance < 1) {
+                    data.push({ day: d + t/tradesPerDay, balance, edge: currentEdge, winrate: total ? wins/total : 0 });
+                    continue;
+                }
+                // Win probability = 0.5 + currentEdge (when edge > 0) 
+                const winProb = 0.5 + currentEdge;
+                const won = Math.random() < winProb;
+                if (won) { balance += bet * 0.85; wins++; } // 85% payout (market spread)
+                else { balance -= bet; }
+                total++;
+
+                // Market adapts: edge decays each trade
+                currentEdge *= (1 - adapt * 0.015);
+                // After enough adaptation, edge can go slightly negative (adverse selection)
+                if (d > 5 && currentEdge < 0.02) {
+                    currentEdge -= 0.001;
+                }
+                currentEdge = Math.max(currentEdge, -0.08);
+
+                data.push({
+                    day: d + t/tradesPerDay,
+                    balance: Math.max(balance, 0),
+                    edge: currentEdge,
+                    winrate: total ? wins/total : 0,
+                });
+            }
+            if (balance < 1) break;
+        }
+        return data;
+    }
+
+    function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * window.devicePixelRatio;
+        canvas.height = rect.height * window.devicePixelRatio;
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+
+    function getPhase(edge, initialEdge) {
+        const ratio = edge / initialEdge;
+        if (ratio > 0.7) return { name: 'Discovery', cls: 'phase-discovery', emoji: '🟢' };
+        if (ratio > 0.3) return { name: 'Exploitation', cls: 'phase-exploitation', emoji: '🟣' };
+        if (edge > 0) return { name: 'Decay', cls: 'phase-decay', emoji: '🟡' };
+        return { name: 'Death', cls: 'phase-death', emoji: '🔴' };
+    }
+
+    function drawChart(data, upTo) {
+        const w = canvas.getBoundingClientRect().width;
+        const h = canvas.getBoundingClientRect().height;
+        ctx.clearRect(0, 0, w, h);
+
+        if (upTo < 1) return;
+        const slice = data.slice(0, upTo);
+
+        // Find bounds
+        const maxBal = Math.max(...slice.map(d => d.balance), getParams().capital * 1.2);
+        const minBal = 0;
+        const maxDay = Math.max(slice[slice.length-1].day, 5);
+
+        const pad = { top: 30, right: 20, bottom: 40, left: 60 };
+        const cw = w - pad.left - pad.right;
+        const ch = h - pad.top - pad.bottom;
+
+        const x = d => pad.left + (d / maxDay) * cw;
+        const y = b => pad.top + ch - ((b - minBal) / (maxBal - minBal)) * ch;
+
+        // Grid lines
+        ctx.strokeStyle = '#1e1e2e';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 5; i++) {
+            const yy = pad.top + (ch / 5) * i;
+            ctx.beginPath(); ctx.moveTo(pad.left, yy); ctx.lineTo(w - pad.right, yy); ctx.stroke();
+            ctx.fillStyle = '#4a4a60';
+            ctx.font = '11px JetBrains Mono';
+            ctx.textAlign = 'right';
+            const val = maxBal - (maxBal - minBal) * (i / 5);
+            ctx.fillText(`$${val.toFixed(0)}`, pad.left - 8, yy + 4);
+        }
+
+        // Day labels
+        ctx.textAlign = 'center';
+        for (let d = 0; d <= maxDay; d += Math.ceil(maxDay / 6)) {
+            ctx.fillStyle = '#4a4a60';
+            ctx.fillText(`Day ${d}`, x(d), h - pad.bottom + 20);
+        }
+
+        // Starting capital line
+        ctx.strokeStyle = '#2a2a3e';
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(pad.left, y(getParams().capital));
+        ctx.lineTo(w - pad.right, y(getParams().capital));
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Balance line
+        ctx.beginPath();
+        ctx.moveTo(x(slice[0].day), y(slice[0].balance));
+        for (let i = 1; i < slice.length; i++) {
+            ctx.lineTo(x(slice[i].day), y(slice[i].balance));
+        }
+        ctx.strokeStyle = '#7c5cfc';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // Gradient fill
+        const grad = ctx.createLinearGradient(0, pad.top, 0, h - pad.bottom);
+        grad.addColorStop(0, 'rgba(124, 92, 252, 0.15)');
+        grad.addColorStop(1, 'rgba(124, 92, 252, 0)');
+        ctx.lineTo(x(slice[slice.length-1].day), h - pad.bottom);
+        ctx.lineTo(x(slice[0].day), h - pad.bottom);
+        ctx.closePath();
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Edge line (secondary, scaled)
+        ctx.beginPath();
+        const initialEdge = getParams().edge;
+        ctx.moveTo(x(slice[0].day), pad.top + ch * (1 - (slice[0].edge + 0.1) / (initialEdge + 0.1)));
+        for (let i = 1; i < slice.length; i++) {
+            const ey = pad.top + ch * (1 - (slice[i].edge + 0.1) / (initialEdge + 0.1));
+            ctx.lineTo(x(slice[i].day), Math.max(pad.top, Math.min(ey, pad.top + ch)));
+        }
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Legend
+        ctx.font = '11px JetBrains Mono';
+        ctx.fillStyle = '#7c5cfc';
+        ctx.fillRect(w - 160, 12, 12, 3);
+        ctx.fillText('Balance', w - 140, 17);
+        ctx.fillStyle = 'rgba(251, 191, 36, 0.6)';
+        ctx.fillRect(w - 80, 12, 12, 3);
+        ctx.fillText('Edge', w - 60, 17);
+
+        // Current point dot
+        const last = slice[slice.length - 1];
+        ctx.beginPath();
+        ctx.arc(x(last.day), y(last.balance), 5, 0, Math.PI * 2);
+        ctx.fillStyle = last.balance >= getParams().capital ? '#34d399' : '#f87171';
+        ctx.fill();
+    }
+
+    function updateStats(point, initialEdge) {
+        const el = id => document.getElementById(id);
+        el('stat-day').textContent = point.day.toFixed(1);
+
+        const balEl = el('stat-balance');
+        balEl.textContent = `$${point.balance.toFixed(0)}`;
+        balEl.className = `val ${point.balance >= getParams().capital ? 'positive' : 'negative'}`;
+
+        const wrEl = el('stat-winrate');
+        wrEl.textContent = `${(point.winrate * 100).toFixed(0)}%`;
+        wrEl.className = `val ${point.winrate > 0.55 ? 'positive' : point.winrate > 0.45 ? 'neutral' : 'negative'}`;
+
+        const edgeEl = el('stat-edge');
+        edgeEl.textContent = `${(point.edge * 100).toFixed(1)}%`;
+        edgeEl.className = `val ${point.edge > 0.03 ? 'positive' : point.edge > 0 ? 'neutral' : 'negative'}`;
+
+        const phase = getPhase(point.edge, initialEdge);
+        const phaseEl = document.getElementById('phase');
+        phaseEl.textContent = `${phase.emoji} ${phase.name}`;
+        phaseEl.className = `phase-indicator ${phase.cls}`;
+    }
+
+    function reset() {
+        running = false;
+        if (animFrame) cancelAnimationFrame(animFrame);
+        simData = [];
+        simIndex = 0;
+        resizeCanvas();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        document.getElementById('stat-day').textContent = '0';
+        document.getElementById('stat-balance').textContent = `$${sliders.capital.value}`;
+        document.getElementById('stat-balance').className = 'val positive';
+        document.getElementById('stat-winrate').textContent = '—';
+        document.getElementById('stat-winrate').className = 'val neutral';
+        document.getElementById('stat-edge').textContent = '—';
+        document.getElementById('stat-edge').className = 'val neutral';
+        const phaseEl = document.getElementById('phase');
+        phaseEl.textContent = '⏳ Ready';
+        phaseEl.className = 'phase-indicator phase-discovery';
+    }
+
+    function step() {
+        if (!simData.length) {
+            simData = simulate(getParams());
+        }
+        if (simIndex < simData.length) {
+            simIndex = Math.min(simIndex + 4, simData.length);
+            resizeCanvas();
+            drawChart(simData, simIndex);
+            updateStats(simData[simIndex - 1], getParams().edge);
+        }
+    }
+
+    function run() {
+        if (running) { running = false; return; }
+        if (!simData.length) {
+            simData = simulate(getParams());
+            simIndex = 0;
+        }
+        running = true;
+        function tick() {
+            if (!running || simIndex >= simData.length) { running = false; return; }
+            simIndex = Math.min(simIndex + 2, simData.length);
+            resizeCanvas();
+            drawChart(simData, simIndex);
+            updateStats(simData[simIndex - 1], getParams().edge);
+            animFrame = requestAnimationFrame(tick);
+        }
+        tick();
+    }
+
+    function ourStory() {
+        sliders.capital.value = 50; vals.capital.textContent = '$50';
+        sliders.edge.value = 15; vals.edge.textContent = '15%';
+        sliders.adapt.value = 12; vals.adapt.textContent = '12 (fast)';
+        sliders.betsize.value = 8; vals.betsize.textContent = '8%';
+        reset();
+        simData = simulate(getParams());
+        simIndex = 0;
+        run();
+    }
+
+    document.getElementById('btn-run').addEventListener('click', run);
+    document.getElementById('btn-step').addEventListener('click', step);
+    document.getElementById('btn-reset').addEventListener('click', reset);
+    document.getElementById('btn-our-story').addEventListener('click', ourStory);
+
+    // Initial
+    resizeCanvas();
+    window.addEventListener('resize', () => { resizeCanvas(); if (simData.length) drawChart(simData, simIndex); });
+    </script>
+</body>
+</html>

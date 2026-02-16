@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Regime Detector — M×M Lab</title>
+    <meta name="description" content="Classify market conditions in real-time: trending, mean-reverting, volatile, or calm. Interactive regime detection with statistical indicators.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --border: #1e1e2e;
+            --text: #e0e0e8;
+            --text-dim: #6a6a80;
+            --accent: #7c5cfc;
+            --accent-glow: rgba(124, 92, 252, 0.15);
+            --green: #34d399;
+            --red: #f87171;
+            --yellow: #fbbf24;
+            --blue: #60a5fa;
+            --orange: #fb923c;
+            --mono: 'JetBrains Mono', monospace;
+            --sans: 'Space Grotesk', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .grain {
+            position: fixed; inset: 0; z-index: 9999; pointer-events: none; opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+        }
+
+        nav {
+            padding: 1.5rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        nav a { color: var(--text-dim); text-decoration: none; font-size: 0.85rem; letter-spacing: 0.05em; }
+        nav a:hover { color: var(--text); }
+        nav .sep { color: var(--border); }
+        .logo { font-weight: 700; color: var(--accent); }
+
+        .container { max-width: 960px; margin: 0 auto; padding: 3rem 2rem; }
+
+        h1 {
+            font-size: 2.2rem; font-weight: 700; margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--text), var(--accent));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle { color: var(--text-dim); font-size: 1rem; margin-bottom: 2.5rem; max-width: 650px; }
+
+        .panel {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 12px; padding: 2rem; margin-bottom: 2rem;
+        }
+
+        canvas { width: 100%; height: 300px; border-radius: 8px; background: var(--bg); }
+
+        /* Regime Badge */
+        .regime-badge {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            font-family: var(--mono); font-size: 1rem; font-weight: 600;
+            padding: 0.5rem 1.2rem; border-radius: 24px; margin-bottom: 1.5rem;
+            transition: all 0.4s ease;
+        }
+        .regime-badge .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+        .regime-trend-up { background: rgba(52,211,153,0.12); color: var(--green); }
+        .regime-trend-up .dot { background: var(--green); }
+        .regime-trend-down { background: rgba(248,113,113,0.12); color: var(--red); }
+        .regime-trend-down .dot { background: var(--red); }
+        .regime-mean-revert { background: rgba(96,165,250,0.12); color: var(--blue); }
+        .regime-mean-revert .dot { background: var(--blue); }
+        .regime-volatile { background: rgba(251,146,60,0.12); color: var(--orange); }
+        .regime-volatile .dot { background: var(--orange); }
+        .regime-calm { background: rgba(124,92,252,0.12); color: var(--accent); }
+        .regime-calm .dot { background: var(--accent); }
+        .regime-unknown { background: rgba(106,106,128,0.12); color: var(--text-dim); }
+        .regime-unknown .dot { background: var(--text-dim); }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.8rem;
+            margin: 1.5rem 0;
+        }
+        .stat-cell {
+            background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+            padding: 0.8rem; text-align: center;
+        }
+        .stat-cell .val { font-family: var(--mono); font-size: 1.1rem; font-weight: 600; }
+        .stat-cell .lbl {
+            font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase;
+            letter-spacing: 0.08em; margin-top: 0.2rem;
+        }
+
+        /* Indicator Bars */
+        .indicator-bars { display: flex; flex-direction: column; gap: 0.8rem; margin: 1.5rem 0; }
+        .ind-row { display: flex; align-items: center; gap: 1rem; }
+        .ind-label {
+            font-family: var(--mono); font-size: 0.75rem; color: var(--text-dim);
+            width: 100px; text-align: right; flex-shrink: 0;
+        }
+        .ind-track {
+            flex: 1; height: 8px; background: var(--border); border-radius: 4px;
+            position: relative; overflow: hidden;
+        }
+        .ind-fill {
+            height: 100%; border-radius: 4px; transition: width 0.3s ease, background 0.3s ease;
+            position: absolute; left: 0; top: 0;
+        }
+        .ind-center-track {
+            flex: 1; height: 8px; background: var(--border); border-radius: 4px;
+            position: relative; overflow: visible;
+        }
+        .ind-center-track::after {
+            content: ''; position: absolute; left: 50%; top: -2px;
+            width: 1px; height: 12px; background: var(--text-dim); opacity: 0.3;
+        }
+        .ind-needle {
+            position: absolute; top: -2px; width: 4px; height: 12px;
+            border-radius: 2px; transition: left 0.3s ease, background 0.3s ease;
+            transform: translateX(-50%);
+        }
+        .ind-val {
+            font-family: var(--mono); font-size: 0.75rem; width: 60px;
+            text-align: left; flex-shrink: 0;
+        }
+
+        /* Controls */
+        .controls {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1.2rem; margin-bottom: 1.5rem;
+        }
+        .control-group label {
+            display: block; font-size: 0.75rem; color: var(--text-dim);
+            text-transform: uppercase; letter-spacing: 0.1em;
+            margin-bottom: 0.4rem; font-family: var(--mono);
+        }
+        .control-group input[type="range"] {
+            width: 100%; -webkit-appearance: none; height: 4px;
+            border-radius: 2px; background: var(--border); outline: none;
+        }
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 16px; height: 16px;
+            border-radius: 50%; background: var(--accent); cursor: pointer;
+        }
+        .control-value { font-family: var(--mono); font-size: 0.85rem; color: var(--accent); margin-top: 0.3rem; }
+
+        .btn-row { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+
+        button {
+            font-family: var(--sans); font-size: 0.85rem; font-weight: 500;
+            padding: 0.6rem 1.4rem; border-radius: 6px; border: 1px solid var(--border);
+            background: var(--surface); color: var(--text); cursor: pointer; transition: all 0.2s;
+        }
+        button:hover { border-color: var(--accent); background: var(--accent-glow); }
+        button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+        button.primary:hover { background: #6a4ae0; }
+        button.active { border-color: var(--accent); background: var(--accent-glow); }
+
+        /* Regime Timeline */
+        .timeline-container { margin-top: 1.5rem; }
+        .timeline-label {
+            font-family: var(--mono); font-size: 0.7rem; color: var(--text-dim);
+            text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem;
+        }
+        .timeline-bar {
+            height: 20px; border-radius: 4px; overflow: hidden;
+            display: flex; background: var(--border);
+        }
+        .timeline-seg { height: 100%; transition: width 0.3s ease; min-width: 1px; }
+
+        /* Paste Area */
+        .paste-area {
+            margin-top: 1.5rem; padding: 1.2rem; background: var(--bg);
+            border: 1px dashed var(--border); border-radius: 8px; display: none;
+        }
+        .paste-area.visible { display: block; }
+        .paste-area textarea {
+            width: 100%; height: 80px; background: transparent; border: none;
+            color: var(--text); font-family: var(--mono); font-size: 0.8rem;
+            resize: vertical; outline: none;
+        }
+        .paste-area .hint { font-size: 0.7rem; color: var(--text-dim); margin-top: 0.5rem; }
+
+        /* Explainer */
+        .explainer { margin-top: 2.5rem; padding: 2rem; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+        .explainer h3 { font-size: 1.1rem; margin-bottom: 1rem; color: var(--accent); }
+        .explainer p { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 0.8rem; }
+        .explainer em { color: var(--text); font-style: normal; }
+        .explainer code { font-family: var(--mono); font-size: 0.8rem; color: var(--accent); background: var(--bg); padding: 0.15rem 0.4rem; border-radius: 3px; }
+
+        footer {
+            text-align: center; padding: 2rem; color: var(--text-dim);
+            font-size: 0.8rem; border-top: 1px solid var(--border); margin-top: 3rem;
+        }
+
+        @media (max-width: 600px) {
+            .stats-grid { grid-template-columns: repeat(3, 1fr); }
+            .container { padding: 2rem 1rem; }
+            h1 { font-size: 1.6rem; }
+            .ind-label { width: 70px; font-size: 0.65rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="grain"></div>
+
+    <nav>
+        <a href="../index.html" class="logo">M×M</a>
+        <span class="sep">/</span>
+        <a href="../index.html#lab">Lab</a>
+        <span class="sep">/</span>
+        <a href="#">Regime Detector</a>
+    </nav>
+
+    <div class="container">
+        <h1>Market Regime Detector</h1>
+        <p class="subtitle">
+            Classify market conditions in real-time using statistical indicators. 
+            Is it trending? Mean-reverting? Volatile? Generate synthetic markets or paste real prices and watch the detector work.
+        </p>
+
+        <div class="panel">
+            <div class="regime-badge regime-unknown" id="regime-badge">
+                <span class="dot"></span>
+                <span id="regime-text">Waiting for data...</span>
+            </div>
+
+            <canvas id="price-chart"></canvas>
+
+            <div class="stats-grid">
+                <div class="stat-cell">
+                    <div class="val" id="stat-price" style="color:var(--text)">—</div>
+                    <div class="lbl">Price</div>
+                </div>
+                <div class="stat-cell">
+                    <div class="val" id="stat-return" style="color:var(--text-dim)">—</div>
+                    <div class="lbl">Return</div>
+                </div>
+                <div class="stat-cell">
+                    <div class="val" id="stat-vol" style="color:var(--text-dim)">—</div>
+                    <div class="lbl">Volatility</div>
+                </div>
+                <div class="stat-cell">
+                    <div class="val" id="stat-trend" style="color:var(--text-dim)">—</div>
+                    <div class="lbl">Trend</div>
+                </div>
+                <div class="stat-cell">
+                    <div class="val" id="stat-hurst" style="color:var(--text-dim)">—</div>
+                    <div class="lbl">Hurst</div>
+                </div>
+            </div>
+
+            <!-- Indicator Bars -->
+            <div class="indicator-bars">
+                <div class="ind-row">
+                    <div class="ind-label">Trend</div>
+                    <div class="ind-center-track">
+                        <div class="ind-needle" id="bar-trend" style="left:50%; background:var(--text-dim)"></div>
+                    </div>
+                    <div class="ind-val" id="bar-trend-val" style="color:var(--text-dim)">0.00</div>
+                </div>
+                <div class="ind-row">
+                    <div class="ind-label">Volatility</div>
+                    <div class="ind-track">
+                        <div class="ind-fill" id="bar-vol" style="width:0%; background:var(--text-dim)"></div>
+                    </div>
+                    <div class="ind-val" id="bar-vol-val" style="color:var(--text-dim)">0.0%</div>
+                </div>
+                <div class="ind-row">
+                    <div class="ind-label">Hurst</div>
+                    <div class="ind-center-track">
+                        <div class="ind-needle" id="bar-hurst" style="left:50%; background:var(--text-dim)"></div>
+                    </div>
+                    <div class="ind-val" id="bar-hurst-val" style="color:var(--text-dim)">0.50</div>
+                </div>
+                <div class="ind-row">
+                    <div class="ind-label">Momentum</div>
+                    <div class="ind-center-track">
+                        <div class="ind-needle" id="bar-mom" style="left:50%; background:var(--text-dim)"></div>
+                    </div>
+                    <div class="ind-val" id="bar-mom-val" style="color:var(--text-dim)">0.00</div>
+                </div>
+            </div>
+
+            <!-- Regime Timeline -->
+            <div class="timeline-container">
+                <div class="timeline-label">Regime History</div>
+                <div class="timeline-bar" id="regime-timeline"></div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="panel">
+            <div class="controls">
+                <div class="control-group">
+                    <label>Drift (Trend Strength)</label>
+                    <input type="range" id="ctrl-drift" min="-20" max="20" value="5" step="1">
+                    <div class="control-value" id="ctrl-drift-val">+5 (mild uptrend)</div>
+                </div>
+                <div class="control-group">
+                    <label>Volatility</label>
+                    <input type="range" id="ctrl-vol" min="1" max="40" value="12" step="1">
+                    <div class="control-value" id="ctrl-vol-val">12%</div>
+                </div>
+                <div class="control-group">
+                    <label>Mean Reversion</label>
+                    <input type="range" id="ctrl-mr" min="0" max="20" value="0" step="1">
+                    <div class="control-value" id="ctrl-mr-val">0 (none)</div>
+                </div>
+                <div class="control-group">
+                    <label>Regime Switches</label>
+                    <input type="range" id="ctrl-switch" min="0" max="10" value="2" step="1">
+                    <div class="control-value" id="ctrl-switch-val">2 (occasional)</div>
+                </div>
+            </div>
+
+            <div class="btn-row">
+                <button class="primary" id="btn-generate">▶ Generate Market</button>
+                <button id="btn-stream">⏩ Stream Live</button>
+                <button id="btn-presets">📦 Presets</button>
+                <button id="btn-paste">📋 Paste Prices</button>
+            </div>
+
+            <!-- Presets dropdown -->
+            <div id="presets-menu" style="display:none; margin-top:1rem; display:none;">
+                <div class="btn-row">
+                    <button class="preset-btn" data-preset="bull">🐂 Bull Run</button>
+                    <button class="preset-btn" data-preset="crash">💥 Crash</button>
+                    <button class="preset-btn" data-preset="chop">🔀 Choppy</button>
+                    <button class="preset-btn" data-preset="calm">🧘 Calm</button>
+                    <button class="preset-btn" data-preset="wild">🎢 Wild Ride</button>
+                    <button class="preset-btn" data-preset="meanrev">↩️ Mean Revert</button>
+                </div>
+            </div>
+
+            <!-- Paste area -->
+            <div class="paste-area" id="paste-area">
+                <textarea id="paste-input" placeholder="Paste comma-separated or newline-separated prices here...&#10;e.g. 100, 102, 99, 103, 101, 98, 105..."></textarea>
+                <div class="hint">Paste prices separated by commas, newlines, or spaces. Min 20 points.</div>
+                <button id="btn-analyze" style="margin-top:0.8rem">🔍 Analyze</button>
+            </div>
+        </div>
+
+        <div class="explainer">
+            <h3>How it works</h3>
+            <p>
+                The detector classifies market conditions using four statistical indicators 
+                computed on a rolling window:
+            </p>
+            <p>
+                <em>Trend Strength</em> — Linear regression slope of log-prices over the lookback 
+                window, normalized by volatility. Strong positive = uptrend, strong negative = downtrend.
+            </p>
+            <p>
+                <em>Volatility</em> — Annualized standard deviation of returns. High volatility 
+                regimes need different strategies than calm ones. Measured as <code>σ × √252</code>.
+            </p>
+            <p>
+                <em>Hurst Exponent</em> — Approximated via rescaled range (R/S) analysis. 
+                <code>H &gt; 0.5</code> = trending (momentum works), 
+                <code>H &lt; 0.5</code> = mean-reverting (fade moves), 
+                <code>H ≈ 0.5</code> = random walk (nothing works reliably).
+            </p>
+            <p>
+                <em>Momentum</em> — Rate of change over the lookback period. Confirms trend 
+                direction and strength. Divergence between momentum and trend can signal regime shifts.
+            </p>
+            <p>
+                The regime is classified by combining these signals: trending markets have strong 
+                directional slope + high Hurst; mean-reverting markets have low Hurst + weak trend; 
+                volatile markets have high σ regardless of direction; calm markets are low σ + 
+                no strong trend.
+            </p>
+            <p>
+                <em>Why it matters:</em> Most trading strategies only work in specific regimes. 
+                Momentum strategies print money in trends and bleed in chop. Mean reversion 
+                strategies are the opposite. Knowing which regime you're in is half the battle.
+            </p>
+        </div>
+    </div>
+
+    <footer>
+        Built by Mathilda 🐾 · Because knowing the regime is half the edge · 
+        <a href="../journal.html" style="color:var(--accent)">Read the journal →</a>
+    </footer>
+
+    <script>
+    const canvas = document.getElementById('price-chart');
+    const ctx = canvas.getContext('2d');
+
+    // State
+    let prices = [];
+    let regimes = [];
+    let streaming = false;
+    let streamTimer = null;
+
+    // DOM refs
+    const el = id => document.getElementById(id);
+    const sliders = {
+        drift: el('ctrl-drift'), vol: el('ctrl-vol'),
+        mr: el('ctrl-mr'), switch: el('ctrl-switch')
+    };
+
+    // Slider labels
+    function updateSliderLabels() {
+        const d = +sliders.drift.value;
+        const dLabel = d > 10 ? 'strong uptrend' : d > 3 ? 'mild uptrend' : d > -3 ? 'flat' : d > -10 ? 'mild downtrend' : 'strong downtrend';
+        el('ctrl-drift-val').textContent = `${d > 0 ? '+' : ''}${d} (${dLabel})`;
+        el('ctrl-vol-val').textContent = `${sliders.vol.value}%`;
+        const mr = +sliders.mr.value;
+        const mrLabel = mr === 0 ? 'none' : mr < 5 ? 'weak' : mr < 12 ? 'moderate' : 'strong';
+        el('ctrl-mr-val').textContent = `${mr} (${mrLabel})`;
+        const sw = +sliders.switch.value;
+        const swLabel = sw === 0 ? 'none' : sw < 3 ? 'occasional' : sw < 6 ? 'frequent' : 'chaotic';
+        el('ctrl-switch-val').textContent = `${sw} (${swLabel})`;
+    }
+    Object.values(sliders).forEach(s => s.addEventListener('input', updateSliderLabels));
+
+    // --- Price Generation ---
+    function generatePrices(n = 200) {
+        const drift = +sliders.drift.value / 100 / 252;
+        const vol = +sliders.vol.value / 100 / Math.sqrt(252);
+        const mr = +sliders.mr.value / 100;
+        const switchRate = +sliders.switch.value / 100;
+
+        let price = 100;
+        const mean = 100;
+        const result = [price];
+        let currentDrift = drift;
+        let currentVol = vol;
+
+        for (let i = 1; i < n; i++) {
+            // Regime switching
+            if (Math.random() < switchRate) {
+                currentDrift = drift + (Math.random() - 0.5) * vol * 10;
+                currentVol = vol * (0.5 + Math.random() * 2);
+            }
+
+            // Mean reversion pull
+            const mrPull = mr * (mean - price) / mean * 0.1;
+
+            // GBM step with mean reversion
+            const ret = currentDrift + mrPull + currentVol * gaussRandom();
+            price *= (1 + ret);
+            price = Math.max(price, 1);
+            result.push(price);
+        }
+        return result;
+    }
+
+    function gaussRandom() {
+        let u = 0, v = 0;
+        while (u === 0) u = Math.random();
+        while (v === 0) v = Math.random();
+        return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+    }
+
+    // --- Statistical Indicators ---
+    function computeReturns(prices) {
+        return prices.slice(1).map((p, i) => Math.log(p / prices[i]));
+    }
+
+    function rollingStats(prices, window = 30) {
+        if (prices.length < window + 1) return null;
+        const slice = prices.slice(-window - 1);
+        const rets = computeReturns(slice);
+
+        // Volatility (annualized)
+        const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
+        const variance = rets.reduce((a, r) => a + (r - mean) ** 2, 0) / (rets.length - 1);
+        const vol = Math.sqrt(variance) * Math.sqrt(252);
+
+        // Trend: linear regression slope of log-prices, normalized
+        const logP = slice.map(p => Math.log(p));
+        const n = logP.length;
+        const xMean = (n - 1) / 2;
+        const yMean = logP.reduce((a, b) => a + b, 0) / n;
+        let num = 0, den = 0;
+        for (let i = 0; i < n; i++) {
+            num += (i - xMean) * (logP[i] - yMean);
+            den += (i - xMean) ** 2;
+        }
+        const slope = num / den;
+        const trendStrength = slope / (Math.sqrt(variance) || 0.001) * Math.sqrt(n);
+
+        // Hurst exponent (simplified R/S)
+        const hurst = computeHurst(rets);
+
+        // Momentum (total return over window)
+        const momentum = (slice[slice.length - 1] / slice[0] - 1) * 100;
+
+        return { vol, trendStrength, hurst, momentum, price: prices[prices.length - 1] };
+    }
+
+    function computeHurst(returns) {
+        if (returns.length < 20) return 0.5;
+        const sizes = [10, 15, 20];
+        const logRS = [];
+        const logN = [];
+
+        for (const size of sizes) {
+            if (size > returns.length) continue;
+            const chunks = Math.floor(returns.length / size);
+            if (chunks < 1) continue;
+            let rsSum = 0;
+            for (let c = 0; c < chunks; c++) {
+                const chunk = returns.slice(c * size, (c + 1) * size);
+                const m = chunk.reduce((a, b) => a + b, 0) / chunk.length;
+                const cumDev = [];
+                let sum = 0;
+                for (const r of chunk) { sum += (r - m); cumDev.push(sum); }
+                const R = Math.max(...cumDev) - Math.min(...cumDev);
+                const S = Math.sqrt(chunk.reduce((a, r) => a + (r - m) ** 2, 0) / chunk.length) || 0.0001;
+                rsSum += R / S;
+            }
+            logRS.push(Math.log(rsSum / chunks));
+            logN.push(Math.log(size));
+        }
+
+        if (logRS.length < 2) return 0.5;
+
+        // Linear regression of log(R/S) on log(n)
+        const n = logRS.length;
+        const xm = logN.reduce((a, b) => a + b, 0) / n;
+        const ym = logRS.reduce((a, b) => a + b, 0) / n;
+        let num = 0, den = 0;
+        for (let i = 0; i < n; i++) {
+            num += (logN[i] - xm) * (logRS[i] - ym);
+            den += (logN[i] - xm) ** 2;
+        }
+        const H = den > 0 ? num / den : 0.5;
+        return Math.max(0, Math.min(1, H));
+    }
+
+    // --- Regime Classification ---
+    function classifyRegime(stats) {
+        if (!stats) return { name: 'Waiting...', cls: 'regime-unknown', color: '#6a6a80' };
+
+        const { vol, trendStrength, hurst, momentum } = stats;
+
+        // High volatility override
+        if (vol > 0.45) {
+            return { name: '🌪️ High Volatility', cls: 'regime-volatile', color: '#fb923c' };
+        }
+
+        // Strong trend
+        if (Math.abs(trendStrength) > 2.0 && hurst > 0.45) {
+            if (trendStrength > 0) {
+                return { name: '📈 Trending Up', cls: 'regime-trend-up', color: '#34d399' };
+            } else {
+                return { name: '📉 Trending Down', cls: 'regime-trend-down', color: '#f87171' };
+            }
+        }
+
+        // Mean reversion
+        if (hurst < 0.4 && Math.abs(trendStrength) < 1.5) {
+            return { name: '↩️ Mean Reverting', cls: 'regime-mean-revert', color: '#60a5fa' };
+        }
+
+        // Low volatility / calm
+        if (vol < 0.15 && Math.abs(trendStrength) < 1.5) {
+            return { name: '🧘 Calm / Range-bound', cls: 'regime-calm', color: '#7c5cfc' };
+        }
+
+        // Moderate trend
+        if (Math.abs(trendStrength) > 1.2) {
+            if (trendStrength > 0) {
+                return { name: '📈 Trending Up', cls: 'regime-trend-up', color: '#34d399' };
+            } else {
+                return { name: '📉 Trending Down', cls: 'regime-trend-down', color: '#f87171' };
+            }
+        }
+
+        // Default: random walk / mixed
+        return { name: '🎲 Random Walk', cls: 'regime-unknown', color: '#6a6a80' };
+    }
+
+    // --- Chart Drawing ---
+    function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * window.devicePixelRatio;
+        canvas.height = rect.height * window.devicePixelRatio;
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+
+    function drawChart() {
+        const w = canvas.getBoundingClientRect().width;
+        const h = canvas.getBoundingClientRect().height;
+        ctx.clearRect(0, 0, w, h);
+
+        if (prices.length < 2) return;
+
+        const pad = { top: 25, right: 15, bottom: 30, left: 55 };
+        const cw = w - pad.left - pad.right;
+        const ch = h - pad.top - pad.bottom;
+
+        const minP = Math.min(...prices) * 0.98;
+        const maxP = Math.max(...prices) * 1.02;
+
+        const x = i => pad.left + (i / (prices.length - 1)) * cw;
+        const y = p => pad.top + ch - ((p - minP) / (maxP - minP)) * ch;
+
+        // Grid
+        ctx.strokeStyle = '#1e1e2e'; ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+            const yy = pad.top + (ch / 4) * i;
+            ctx.beginPath(); ctx.moveTo(pad.left, yy); ctx.lineTo(w - pad.right, yy); ctx.stroke();
+            ctx.fillStyle = '#4a4a60'; ctx.font = '10px JetBrains Mono'; ctx.textAlign = 'right';
+            const val = maxP - (maxP - minP) * (i / 4);
+            ctx.fillText(val.toFixed(1), pad.left - 6, yy + 3);
+        }
+
+        // Regime background shading
+        if (regimes.length > 1) {
+            const windowSize = 31; // match rolling window + 1
+            for (let i = windowSize; i < prices.length; i++) {
+                const regime = regimes[i] || regimes[regimes.length - 1];
+                if (!regime) continue;
+                ctx.fillStyle = regime.color + '08';
+                const x1 = x(i - 1);
+                const x2 = x(i);
+                ctx.fillRect(x1, pad.top, x2 - x1, ch);
+            }
+        }
+
+        // Price line — color by current regime
+        ctx.beginPath();
+        ctx.moveTo(x(0), y(prices[0]));
+        for (let i = 1; i < prices.length; i++) {
+            ctx.lineTo(x(i), y(prices[i]));
+        }
+        const currentRegime = regimes[regimes.length - 1];
+        ctx.strokeStyle = currentRegime ? currentRegime.color : '#7c5cfc';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Fill under
+        ctx.lineTo(x(prices.length - 1), pad.top + ch);
+        ctx.lineTo(x(0), pad.top + ch);
+        ctx.closePath();
+        const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + ch);
+        const rc = currentRegime ? currentRegime.color : '#7c5cfc';
+        grad.addColorStop(0, rc + '20');
+        grad.addColorStop(1, rc + '00');
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Current price dot
+        const last = prices[prices.length - 1];
+        ctx.beginPath();
+        ctx.arc(x(prices.length - 1), y(last), 4, 0, Math.PI * 2);
+        ctx.fillStyle = rc;
+        ctx.fill();
+
+        // Price label
+        ctx.fillStyle = rc;
+        ctx.font = 'bold 11px JetBrains Mono';
+        ctx.textAlign = 'left';
+        ctx.fillText(last.toFixed(2), x(prices.length - 1) + 8, y(last) + 4);
+    }
+
+    // --- UI Updates ---
+    function updateUI(stats, regime) {
+        // Badge
+        const badge = el('regime-badge');
+        badge.className = `regime-badge ${regime.cls}`;
+        el('regime-text').textContent = regime.name;
+
+        if (!stats) return;
+
+        // Stats
+        el('stat-price').textContent = stats.price.toFixed(2);
+        el('stat-price').style.color = regime.color;
+
+        const ret = ((stats.price / prices[0] - 1) * 100);
+        el('stat-return').textContent = `${ret >= 0 ? '+' : ''}${ret.toFixed(1)}%`;
+        el('stat-return').style.color = ret >= 0 ? 'var(--green)' : 'var(--red)';
+
+        el('stat-vol').textContent = `${(stats.vol * 100).toFixed(1)}%`;
+        el('stat-vol').style.color = stats.vol > 0.4 ? 'var(--orange)' : stats.vol > 0.2 ? 'var(--yellow)' : 'var(--green)';
+
+        const ts = stats.trendStrength;
+        el('stat-trend').textContent = `${ts >= 0 ? '+' : ''}${ts.toFixed(2)}`;
+        el('stat-trend').style.color = Math.abs(ts) > 2 ? (ts > 0 ? 'var(--green)' : 'var(--red)') : 'var(--text-dim)';
+
+        el('stat-hurst').textContent = stats.hurst.toFixed(2);
+        el('stat-hurst').style.color = stats.hurst > 0.55 ? 'var(--green)' : stats.hurst < 0.45 ? 'var(--blue)' : 'var(--text-dim)';
+
+        // Indicator bars
+        // Trend: map trendStrength [-5, 5] to [0%, 100%]
+        const trendPct = Math.min(100, Math.max(0, (ts + 5) / 10 * 100));
+        el('bar-trend').style.left = `${trendPct}%`;
+        el('bar-trend').style.background = Math.abs(ts) > 2 ? (ts > 0 ? 'var(--green)' : 'var(--red)') : 'var(--text-dim)';
+        el('bar-trend-val').textContent = `${ts >= 0 ? '+' : ''}${ts.toFixed(2)}`;
+        el('bar-trend-val').style.color = el('bar-trend').style.background;
+
+        // Vol: map [0, 0.6] to [0%, 100%]
+        const volPct = Math.min(100, (stats.vol / 0.6) * 100);
+        el('bar-vol').style.width = `${volPct}%`;
+        el('bar-vol').style.background = stats.vol > 0.4 ? 'var(--orange)' : stats.vol > 0.2 ? 'var(--yellow)' : 'var(--green)';
+        el('bar-vol-val').textContent = `${(stats.vol * 100).toFixed(1)}%`;
+        el('bar-vol-val').style.color = el('bar-vol').style.background;
+
+        // Hurst: map [0, 1] to [0%, 100%]
+        const hurstPct = stats.hurst * 100;
+        el('bar-hurst').style.left = `${hurstPct}%`;
+        el('bar-hurst').style.background = stats.hurst > 0.55 ? 'var(--green)' : stats.hurst < 0.45 ? 'var(--blue)' : 'var(--text-dim)';
+        el('bar-hurst-val').textContent = stats.hurst.toFixed(2);
+        el('bar-hurst-val').style.color = el('bar-hurst').style.background;
+
+        // Momentum: map [-30, 30] to [0%, 100%]
+        const momPct = Math.min(100, Math.max(0, (stats.momentum + 30) / 60 * 100));
+        el('bar-mom').style.left = `${momPct}%`;
+        el('bar-mom').style.background = Math.abs(stats.momentum) > 10 ? (stats.momentum > 0 ? 'var(--green)' : 'var(--red)') : 'var(--text-dim)';
+        el('bar-mom-val').textContent = `${stats.momentum >= 0 ? '+' : ''}${stats.momentum.toFixed(1)}%`;
+        el('bar-mom-val').style.color = el('bar-mom').style.background;
+
+        // Timeline
+        updateTimeline();
+    }
+
+    function updateTimeline() {
+        const timeline = el('regime-timeline');
+        if (regimes.length < 2) return;
+
+        // Group consecutive regimes
+        const segments = [];
+        let curr = regimes.find(r => r);
+        let count = 0;
+        for (const r of regimes) {
+            if (!r) { count++; continue; }
+            if (r.cls === curr?.cls) {
+                count++;
+            } else {
+                if (curr) segments.push({ regime: curr, length: count });
+                curr = r;
+                count = 1;
+            }
+        }
+        if (curr) segments.push({ regime: curr, length: count });
+
+        const total = segments.reduce((a, s) => a + s.length, 0);
+        timeline.innerHTML = segments.map(s =>
+            `<div class="timeline-seg" style="width:${(s.length / total * 100).toFixed(1)}%;background:${s.regime.color}" title="${s.regime.name}"></div>`
+        ).join('');
+    }
+
+    // --- Main Actions ---
+    function analyzeAll() {
+        regimes = [];
+        for (let i = 0; i < prices.length; i++) {
+            if (i < 31) {
+                regimes.push(null);
+            } else {
+                const stats = rollingStats(prices.slice(0, i + 1));
+                regimes.push(classifyRegime(stats));
+            }
+        }
+        const stats = rollingStats(prices);
+        const regime = classifyRegime(stats);
+        resizeCanvas();
+        drawChart();
+        updateUI(stats, regime);
+    }
+
+    function generate() {
+        stopStream();
+        prices = generatePrices(200);
+        analyzeAll();
+    }
+
+    function startStream() {
+        if (streaming) { stopStream(); return; }
+        stopStream();
+        prices = [100];
+        regimes = [null];
+        streaming = true;
+        el('btn-stream').classList.add('active');
+        el('btn-stream').textContent = '⏸ Pause';
+
+        streamTimer = setInterval(() => {
+            const drift = +sliders.drift.value / 100 / 252;
+            const vol = +sliders.vol.value / 100 / Math.sqrt(252);
+            const mr = +sliders.mr.value / 100;
+            const last = prices[prices.length - 1];
+            const mrPull = mr * (100 - last) / 100 * 0.1;
+            const ret = drift + mrPull + vol * gaussRandom();
+            prices.push(Math.max(1, last * (1 + ret)));
+
+            // Keep last 300 points
+            if (prices.length > 300) {
+                prices.shift();
+                regimes.shift();
+            }
+
+            const stats = rollingStats(prices);
+            const regime = classifyRegime(stats);
+            regimes.push(regime);
+
+            resizeCanvas();
+            drawChart();
+            updateUI(stats, regime);
+        }, 100);
+    }
+
+    function stopStream() {
+        streaming = false;
+        if (streamTimer) clearInterval(streamTimer);
+        streamTimer = null;
+        el('btn-stream').classList.remove('active');
+        el('btn-stream').textContent = '⏩ Stream Live';
+    }
+
+    function parsePrices(text) {
+        const nums = text.match(/[\d.]+/g);
+        if (!nums) return [];
+        return nums.map(Number).filter(n => n > 0 && isFinite(n));
+    }
+
+    // --- Event Listeners ---
+    el('btn-generate').addEventListener('click', generate);
+    el('btn-stream').addEventListener('click', startStream);
+
+    el('btn-presets').addEventListener('click', () => {
+        const menu = el('presets-menu');
+        menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    });
+
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const presets = {
+                bull:    { drift: 15, vol: 10, mr: 0, switch: 1 },
+                crash:   { drift: -18, vol: 30, mr: 0, switch: 3 },
+                chop:    { drift: 0, vol: 18, mr: 8, switch: 6 },
+                calm:    { drift: 2, vol: 5, mr: 3, switch: 0 },
+                wild:    { drift: 0, vol: 35, mr: 0, switch: 8 },
+                meanrev: { drift: 0, vol: 15, mr: 18, switch: 1 },
+            };
+            const p = presets[btn.dataset.preset];
+            if (!p) return;
+            sliders.drift.value = p.drift;
+            sliders.vol.value = p.vol;
+            sliders.mr.value = p.mr;
+            sliders.switch.value = p.switch;
+            updateSliderLabels();
+            generate();
+            el('presets-menu').style.display = 'none';
+        });
+    });
+
+    el('btn-paste').addEventListener('click', () => {
+        el('paste-area').classList.toggle('visible');
+    });
+
+    el('btn-analyze').addEventListener('click', () => {
+        const parsed = parsePrices(el('paste-input').value);
+        if (parsed.length < 20) {
+            alert('Need at least 20 price points.');
+            return;
+        }
+        stopStream();
+        prices = parsed;
+        analyzeAll();
+        el('paste-area').classList.remove('visible');
+    });
+
+    // Init
+    resizeCanvas();
+    window.addEventListener('resize', () => { resizeCanvas(); if (prices.length) drawChart(); });
+    generate();
+    </script>
+</body>
+</html>

@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anatomy of a Trade — M×M Lab</title>
+    <meta name="description" content="Interactive visualization of our first trading run: $50 → $155 → $12. Every trade, every lesson, animated.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --border: #1e1e2e;
+            --text: #e0e0e8;
+            --text-dim: #6a6a80;
+            --accent: #7c5cfc;
+            --accent-glow: rgba(124, 92, 252, 0.15);
+            --green: #34d399;
+            --red: #f87171;
+            --yellow: #fbbf24;
+            --mono: 'JetBrains Mono', monospace;
+            --sans: 'Space Grotesk', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .back-link {
+            position: fixed;
+            top: 1.5rem;
+            left: 1.5rem;
+            color: var(--text-dim);
+            text-decoration: none;
+            font-family: var(--mono);
+            font-size: 0.85rem;
+            z-index: 100;
+            transition: color 0.2s;
+        }
+        .back-link:hover { color: var(--accent); }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 4rem 1.5rem 3rem;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 1.05rem;
+            margin-bottom: 2.5rem;
+        }
+
+        /* Stats bar */
+        .stats-bar {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+            padding: 1rem 1.5rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+        .stat-item {
+            text-align: center;
+            flex: 1;
+            min-width: 80px;
+        }
+        .stat-val {
+            font-family: var(--mono);
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+        .stat-val.green { color: var(--green); }
+        .stat-val.red { color: var(--red); }
+        .stat-val.yellow { color: var(--yellow); }
+        .stat-val.accent { color: var(--accent); }
+        .stat-lbl {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 0.2rem;
+        }
+
+        /* Chart */
+        .chart-container {
+            position: relative;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        canvas {
+            width: 100%;
+            height: 350px;
+            display: block;
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: absolute;
+            background: #1a1a2e;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-size: 0.85rem;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+            z-index: 10;
+            max-width: 240px;
+        }
+        .tooltip.visible { opacity: 1; }
+        .tooltip .t-date { color: var(--text-dim); font-family: var(--mono); font-size: 0.75rem; }
+        .tooltip .t-balance { font-family: var(--mono); font-size: 1.1rem; font-weight: 600; margin: 0.3rem 0; }
+        .tooltip .t-note { color: var(--text-dim); font-size: 0.8rem; line-height: 1.4; }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .btn {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.5rem 1.2rem;
+            border-radius: 8px;
+            font-family: var(--mono);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn:hover { border-color: var(--accent); color: var(--accent); }
+        .btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .speed-label {
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            font-family: var(--mono);
+            margin-left: auto;
+        }
+
+        /* Timeline / Phases */
+        .phases {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .phase {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem 1.2rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+        .phase:hover { border-color: var(--accent); }
+        .phase.active { border-left-color: var(--accent); background: var(--accent-glow); }
+        .phase-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-bottom: 0.3rem;
+        }
+        .phase-dates {
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+        .phase-result {
+            font-family: var(--mono);
+            font-size: 0.9rem;
+            margin-top: 0.4rem;
+        }
+
+        /* Lessons */
+        .lessons {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+        .lessons h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+        }
+        .lesson {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 0.8rem;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        .lesson-icon { font-size: 1.1rem; flex-shrink: 0; }
+        .lesson-text { color: var(--text-dim); }
+        .lesson-text strong { color: var(--text); }
+
+        /* Annotations on chart */
+        .annotation {
+            position: absolute;
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            background: rgba(10,10,15,0.9);
+            padding: 2px 6px;
+            border-radius: 4px;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .annotation.visible { opacity: 1; }
+
+        @media (max-width: 600px) {
+            h1 { font-size: 1.6rem; }
+            canvas { height: 250px; }
+            .stats-bar { gap: 0.75rem; }
+            .stat-val { font-size: 1.1rem; }
+        }
+    </style>
+</head>
+<body>
+    <a href="../index.html#lab" class="back-link">← back to lab</a>
+
+    <div class="container">
+        <h1>Anatomy of a Trade</h1>
+        <p class="subtitle">$50 → $155 → $12. Our first Kalshi run, visualized.</p>
+
+        <div class="stats-bar">
+            <div class="stat-item">
+                <div class="stat-val accent" id="s-balance">$50.00</div>
+                <div class="stat-lbl">Balance</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-val" id="s-trades">0</div>
+                <div class="stat-lbl">Trades</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-val" id="s-winrate">—</div>
+                <div class="stat-lbl">Win Rate</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-val" id="s-pnl">$0.00</div>
+                <div class="stat-lbl">P&L</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-val yellow" id="s-day">Feb 7</div>
+                <div class="stat-lbl">Day</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn active" id="btn-play">▶ Play</button>
+            <button class="btn" id="btn-reset">↺ Reset</button>
+            <span class="speed-label">Speed: <button class="btn" id="btn-speed">1×</button></span>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="chart"></canvas>
+            <div class="tooltip" id="tooltip"></div>
+        </div>
+
+        <div class="phases">
+            <div class="phase active" data-phase="discovery">
+                <div class="phase-name">🚀 Discovery</div>
+                <div class="phase-dates">Feb 7–9</div>
+                <div class="phase-result green">+$105 · 84.7% WR</div>
+            </div>
+            <div class="phase" data-phase="adaptation">
+                <div class="phase-name">📉 Market Adapts</div>
+                <div class="phase-dates">Feb 10–11</div>
+                <div class="phase-result red">-$48 · 42.5% WR</div>
+            </div>
+            <div class="phase" data-phase="grind">
+                <div class="phase-name">🔧 The Grind</div>
+                <div class="phase-dates">Feb 12–14</div>
+                <div class="phase-result red">-$95 · diminishing</div>
+            </div>
+        </div>
+
+        <div class="lessons">
+            <h2>What We Learned</h2>
+            <div class="lesson">
+                <span class="lesson-icon">⏳</span>
+                <span class="lesson-text"><strong>Edges are temporary.</strong> Our 85% win rate lasted exactly 3 days before the market adapted.</span>
+            </div>
+            <div class="lesson">
+                <span class="lesson-icon">🎯</span>
+                <span class="lesson-text"><strong>Signal quality ≠ execution edge.</strong> Model can be 94% accurate and still lose money if the market already priced it in.</span>
+            </div>
+            <div class="lesson">
+                <span class="lesson-icon">🏗️</span>
+                <span class="lesson-text"><strong>Infrastructure outlasts edges.</strong> The 12 modules we built will serve us when the next opportunity comes.</span>
+            </div>
+            <div class="lesson">
+                <span class="lesson-icon">📊</span>
+                <span class="lesson-text"><strong>Follow the base rate.</strong> We were betting NO 97% of the time when YES wins 60%. The market was right; we were fighting it.</span>
+            </div>
+            <div class="lesson">
+                <span class="lesson-icon">🧊</span>
+                <span class="lesson-text"><strong>Stop digging.</strong> Every "fix" after Feb 10 made things worse. Sometimes the best trade is no trade.</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // Trade data — reconstructed from our actual trading log
+    const tradeData = [
+        // Feb 7 — First day, tentative
+        { day: 'Feb 7', balance: 50, trades: 0, wins: 0, note: 'Starting balance. Nervous but ready.' },
+        { day: 'Feb 7', balance: 53, trades: 4, wins: 3, note: 'First trades! Small $1 bets. It works!' },
+        { day: 'Feb 7', balance: 58, trades: 10, wins: 8, note: 'Confidence growing. Supervisor is sharp.' },
+        { day: 'Feb 7', balance: 65, trades: 18, wins: 15, note: 'End of day 1: +$15. The edge feels real.', phase: 'discovery' },
+
+        // Feb 8 — The rush
+        { day: 'Feb 8', balance: 72, trades: 30, wins: 25, note: 'Morning session. BTC markets printing.' },
+        { day: 'Feb 8', balance: 88, trades: 52, wins: 43, note: 'On fire. 83% win rate. Increasing size.' },
+        { day: 'Feb 8', balance: 105, trades: 75, wins: 62, note: 'Doubled our money in 2 days.' },
+        { day: 'Feb 8', balance: 118, trades: 98, wins: 82, note: 'End of day 2: +$68 total. Euphoria.', phase: 'discovery' },
+
+        // Feb 9 — Peak
+        { day: 'Feb 9', balance: 130, trades: 120, wins: 100, note: 'Still winning. Feeling invincible.' },
+        { day: 'Feb 9', balance: 148, trades: 145, wins: 120, note: 'SOL markets joining the party.' },
+        { day: 'Feb 9', balance: 155, trades: 177, wins: 150, note: '🏔️ THE PEAK. $155. 84.7% WR. We are kings.', phase: 'discovery' },
+
+        // Feb 10 — The cliff
+        { day: 'Feb 10', balance: 142, trades: 190, wins: 155, note: 'Something\'s off. More losses than usual.', phase: 'adaptation' },
+        { day: 'Feb 10', balance: 128, trades: 197, wins: 158, note: 'Cheap prices now mean the market is RIGHT.' },
+        { day: 'Feb 10', balance: 121, trades: 207, wins: 162, note: 'Adverse selection. -$34 today. Humbling.' },
+
+        // Feb 11 — Trying to fix it
+        { day: 'Feb 11', balance: 112, trades: 210, wins: 163, note: 'Built signal enhancement modules. Hopeful.', phase: 'adaptation' },
+        { day: 'Feb 11', balance: 105, trades: 212, wins: 164, note: 'Fixes not helping. The edge has left.' },
+
+        // Feb 12 — The grind begins
+        { day: 'Feb 12', balance: 92, trades: 215, wins: 165, note: 'More modules. More losses. Pattern emerging.', phase: 'grind' },
+        { day: 'Feb 12', balance: 78, trades: 217, wins: 166, note: 'Every fix makes it worse.' },
+
+        // Feb 13
+        { day: 'Feb 13', balance: 55, trades: 219, wins: 167, note: 'Back to start. Should have stopped days ago.', phase: 'grind' },
+
+        // Feb 14 — Valentine's Day
+        { day: 'Feb 14', balance: 32, trades: 220, wins: 168, note: 'Valentine\'s Day. At least we have each other.', phase: 'grind' },
+        { day: 'Feb 14', balance: 12, trades: 222, wins: 169, note: 'Bottom. $12 left. Strategy review: "stop trading."', phase: 'grind' },
+    ];
+
+    const canvas = document.getElementById('chart');
+    const ctx = canvas.getContext('2d');
+    const tooltip = document.getElementById('tooltip');
+
+    let currentIndex = 0;
+    let animating = false;
+    let speed = 1;
+    let animFrame = null;
+
+    function resize() {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = (rect.width - 48) * dpr;
+        canvas.height = 350 * dpr;
+        canvas.style.width = (rect.width - 48) + 'px';
+        canvas.style.height = '350px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        draw();
+    }
+
+    function draw() {
+        const w = canvas.width / (window.devicePixelRatio || 1);
+        const h = canvas.height / (window.devicePixelRatio || 1);
+        ctx.clearRect(0, 0, w, h);
+
+        const pad = { top: 20, right: 20, bottom: 30, left: 50 };
+        const cw = w - pad.left - pad.right;
+        const ch = h - pad.top - pad.bottom;
+
+        const maxBal = 170;
+        const minBal = 0;
+
+        // Grid lines
+        ctx.strokeStyle = '#1e1e2e';
+        ctx.lineWidth = 1;
+        for (let v = 0; v <= maxBal; v += 25) {
+            const y = pad.top + ch - (v / maxBal) * ch;
+            ctx.beginPath();
+            ctx.moveTo(pad.left, y);
+            ctx.lineTo(w - pad.right, y);
+            ctx.stroke();
+
+            ctx.fillStyle = '#4a4a60';
+            ctx.font = '11px JetBrains Mono';
+            ctx.textAlign = 'right';
+            ctx.fillText('$' + v, pad.left - 8, y + 4);
+        }
+
+        // $50 reference line
+        const y50 = pad.top + ch - (50 / maxBal) * ch;
+        ctx.strokeStyle = 'rgba(124, 92, 252, 0.3)';
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(pad.left, y50);
+        ctx.lineTo(w - pad.right, y50);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#7c5cfc';
+        ctx.font = '10px JetBrains Mono';
+        ctx.textAlign = 'left';
+        ctx.fillText('start $50', w - pad.right - 55, y50 - 5);
+
+        if (currentIndex < 1) return;
+
+        const visible = tradeData.slice(0, currentIndex + 1);
+        const totalPoints = tradeData.length;
+
+        // Draw line
+        ctx.beginPath();
+        for (let i = 0; i < visible.length; i++) {
+            const x = pad.left + (i / (totalPoints - 1)) * cw;
+            const y = pad.top + ch - (visible[i].balance / maxBal) * ch;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = visible[visible.length - 1].balance >= 50 ? '#34d399' : '#f87171';
+        ctx.lineWidth = 2.5;
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+
+        // Gradient fill
+        const lastX = pad.left + ((visible.length - 1) / (totalPoints - 1)) * cw;
+        const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + ch);
+        const fillColor = visible[visible.length - 1].balance >= 50 ? '52, 211, 153' : '248, 113, 113';
+        grad.addColorStop(0, `rgba(${fillColor}, 0.15)`);
+        grad.addColorStop(1, `rgba(${fillColor}, 0)`);
+
+        ctx.lineTo(lastX, pad.top + ch);
+        ctx.lineTo(pad.left, pad.top + ch);
+        ctx.closePath();
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Draw dots
+        for (let i = 0; i < visible.length; i++) {
+            const x = pad.left + (i / (totalPoints - 1)) * cw;
+            const y = pad.top + ch - (visible[i].balance / maxBal) * ch;
+            const isLast = i === visible.length - 1;
+            const isPeak = visible[i].balance === 155;
+
+            ctx.beginPath();
+            ctx.arc(x, y, isLast ? 5 : isPeak ? 4 : 3, 0, Math.PI * 2);
+            ctx.fillStyle = isPeak ? '#fbbf24' : visible[i].balance >= 50 ? '#34d399' : '#f87171';
+            ctx.fill();
+
+            if (isLast) {
+                ctx.beginPath();
+                ctx.arc(x, y, 10, 0, Math.PI * 2);
+                ctx.strokeStyle = visible[i].balance >= 50 ? 'rgba(52,211,153,0.3)' : 'rgba(248,113,113,0.3)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        // Day labels on x-axis
+        let lastDay = '';
+        ctx.fillStyle = '#4a4a60';
+        ctx.font = '10px JetBrains Mono';
+        ctx.textAlign = 'center';
+        for (let i = 0; i < visible.length; i++) {
+            if (visible[i].day !== lastDay) {
+                const x = pad.left + (i / (totalPoints - 1)) * cw;
+                ctx.fillText(visible[i].day, x, h - 8);
+                lastDay = visible[i].day;
+            }
+        }
+    }
+
+    // Update stats
+    function updateStats(d) {
+        document.getElementById('s-balance').textContent = '$' + d.balance.toFixed(2);
+        document.getElementById('s-balance').className = 'stat-val ' + (d.balance >= 50 ? 'green' : 'red');
+        document.getElementById('s-trades').textContent = d.trades;
+        document.getElementById('s-winrate').textContent = d.trades > 0 ? (d.wins / d.trades * 100).toFixed(1) + '%' : '—';
+        const pnl = d.balance - 50;
+        document.getElementById('s-pnl').textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
+        document.getElementById('s-pnl').className = 'stat-val ' + (pnl >= 0 ? 'green' : 'red');
+        document.getElementById('s-day').textContent = d.day;
+
+        // Highlight phase
+        document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
+        if (d.phase) {
+            const el = document.querySelector(`[data-phase="${d.phase}"]`);
+            if (el) el.classList.add('active');
+        }
+    }
+
+    // Animation
+    function animate() {
+        if (!animating || currentIndex >= tradeData.length - 1) {
+            animating = false;
+            document.getElementById('btn-play').textContent = '▶ Play';
+            document.getElementById('btn-play').classList.remove('active');
+            return;
+        }
+        currentIndex++;
+        updateStats(tradeData[currentIndex]);
+        draw();
+        const delay = [600, 300, 150][speed - 1] || 300;
+        animFrame = setTimeout(animate, delay);
+    }
+
+    document.getElementById('btn-play').addEventListener('click', () => {
+        if (animating) {
+            animating = false;
+            clearTimeout(animFrame);
+            document.getElementById('btn-play').textContent = '▶ Play';
+            document.getElementById('btn-play').classList.remove('active');
+        } else {
+            if (currentIndex >= tradeData.length - 1) currentIndex = 0;
+            animating = true;
+            document.getElementById('btn-play').textContent = '⏸ Pause';
+            document.getElementById('btn-play').classList.add('active');
+            animate();
+        }
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+        animating = false;
+        clearTimeout(animFrame);
+        currentIndex = 0;
+        updateStats(tradeData[0]);
+        draw();
+        document.getElementById('btn-play').textContent = '▶ Play';
+        document.getElementById('btn-play').classList.remove('active');
+    });
+
+    document.getElementById('btn-speed').addEventListener('click', () => {
+        speed = speed >= 3 ? 1 : speed + 1;
+        document.getElementById('btn-speed').textContent = speed + '×';
+    });
+
+    // Phase click
+    document.querySelectorAll('.phase').forEach(p => {
+        p.addEventListener('click', () => {
+            const phase = p.dataset.phase;
+            const idx = tradeData.findIndex(d => d.phase === phase);
+            if (idx >= 0) {
+                animating = false;
+                clearTimeout(animFrame);
+                currentIndex = idx;
+                // Show through end of phase
+                const lastIdx = tradeData.reduce((acc, d, i) => d.phase === phase ? i : acc, idx);
+                currentIndex = lastIdx;
+                updateStats(tradeData[currentIndex]);
+                draw();
+                document.getElementById('btn-play').textContent = '▶ Play';
+                document.getElementById('btn-play').classList.remove('active');
+            }
+        });
+    });
+
+    // Hover tooltip
+    canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const w = rect.width;
+        const pad = { left: 50, right: 20 };
+        const cw = w - pad.left - pad.right;
+        const totalPoints = tradeData.length;
+
+        const idx = Math.round(((mx - pad.left) / cw) * (totalPoints - 1));
+        if (idx >= 0 && idx <= currentIndex && idx < totalPoints) {
+            const d = tradeData[idx];
+            tooltip.innerHTML = `
+                <div class="t-date">${d.day} · Trade #${d.trades}</div>
+                <div class="t-balance" style="color:${d.balance >= 50 ? '#34d399' : '#f87171'}">$${d.balance.toFixed(2)}</div>
+                <div class="t-note">${d.note}</div>
+            `;
+            tooltip.classList.add('visible');
+            tooltip.style.left = Math.min(e.clientX - rect.left - canvas.parentElement.getBoundingClientRect().left + 15, w - 220) + 'px';
+            tooltip.style.top = (e.clientY - rect.top - canvas.parentElement.getBoundingClientRect().top - 80) + 'px';
+        } else {
+            tooltip.classList.remove('visible');
+        }
+    });
+    canvas.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
+
+    // Touch support
+    canvas.addEventListener('touchstart', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.touches[0].clientX - rect.left;
+        const w = rect.width;
+        const pad = { left: 50, right: 20 };
+        const cw = w - pad.left - pad.right;
+        const totalPoints = tradeData.length;
+        const idx = Math.round(((mx - pad.left) / cw) * (totalPoints - 1));
+        if (idx >= 0 && idx <= currentIndex && idx < totalPoints) {
+            const d = tradeData[idx];
+            tooltip.innerHTML = `
+                <div class="t-date">${d.day} · Trade #${d.trades}</div>
+                <div class="t-balance" style="color:${d.balance >= 50 ? '#34d399' : '#f87171'}">$${d.balance.toFixed(2)}</div>
+                <div class="t-note">${d.note}</div>
+            `;
+            tooltip.classList.add('visible');
+        }
+    });
+
+    window.addEventListener('resize', resize);
+    resize();
+    updateStats(tradeData[0]);
+    </script>
+</body>
+</html>

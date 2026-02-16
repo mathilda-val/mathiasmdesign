@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reaction-Diffusion — M×M Lab</title>
+    <meta name="description" content="GPU-accelerated reaction-diffusion simulator. Watch Turing patterns emerge from mathematical chemistry in real time.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --border: #1e1e2e;
+            --text: #e0e0e8;
+            --text-dim: #6a6a80;
+            --accent: #7c5cfc;
+            --accent-glow: rgba(124, 92, 252, 0.15);
+            --green: #34d399;
+            --red: #f87171;
+            --yellow: #fbbf24;
+            --mono: 'JetBrains Mono', monospace;
+            --sans: 'Space Grotesk', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+            line-height: 1.6;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .grain {
+            position: fixed; inset: 0; z-index: 9999; pointer-events: none; opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+        }
+
+        nav {
+            padding: 1.5rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        nav a { color: var(--text-dim); text-decoration: none; font-size: 0.85rem; letter-spacing: 0.05em; }
+        nav a:hover { color: var(--text); }
+        nav .sep { color: var(--border); }
+        .logo { font-weight: 700; color: var(--accent); }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--text), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 1rem;
+            margin-bottom: 2rem;
+            max-width: 700px;
+        }
+
+        .studio {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        .canvas-wrap {
+            position: relative;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 1;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            cursor: crosshair;
+        }
+
+        .canvas-overlay {
+            position: absolute;
+            bottom: 1rem;
+            left: 1rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .stats {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            background: rgba(10,10,15,0.8);
+            padding: 0.4rem 0.7rem;
+            border-radius: 6px;
+        }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+
+        .panel::-webkit-scrollbar { width: 4px; }
+        .panel::-webkit-scrollbar-track { background: transparent; }
+        .panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+        .section-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-dim);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.4rem;
+        }
+
+        .control {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+
+        .control label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .control label span {
+            color: var(--accent);
+            font-family: var(--mono);
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .presets {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.4rem;
+        }
+
+        .preset-btn, .btn {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.5rem 0.8rem;
+            border-radius: 6px;
+            font-family: var(--sans);
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .preset-btn:hover, .btn:hover {
+            border-color: var(--accent);
+            background: var(--accent-glow);
+        }
+
+        .preset-btn.active {
+            border-color: var(--accent);
+            background: var(--accent-glow);
+            color: var(--accent);
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: var(--bg);
+            border-color: var(--accent);
+            font-weight: 600;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+            background: var(--accent);
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 0.4rem;
+        }
+
+        .btn-row .btn { flex: 1; }
+
+        .color-presets {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.4rem;
+        }
+
+        .color-btn {
+            width: 100%;
+            aspect-ratio: 2;
+            border-radius: 4px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .color-btn:hover, .color-btn.active {
+            border-color: var(--accent);
+        }
+
+        .brush-sizes {
+            display: flex;
+            gap: 0.4rem;
+            align-items: center;
+        }
+
+        .brush-btn {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: border-color 0.2s;
+        }
+
+        .brush-btn:hover, .brush-btn.active { border-color: var(--accent); }
+
+        .brush-dot {
+            background: var(--text);
+            border-radius: 50%;
+        }
+
+        .hint {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            font-style: italic;
+            line-height: 1.4;
+        }
+
+        @media (max-width: 900px) {
+            .studio { grid-template-columns: 1fr; }
+            .canvas-wrap { aspect-ratio: auto; height: 60vw; min-height: 300px; }
+        }
+    </style>
+</head>
+<body>
+<div class="grain"></div>
+
+<nav>
+    <a href="/" class="logo">M×M</a>
+    <span class="sep">/</span>
+    <a href="/">Home</a>
+    <span class="sep">/</span>
+    <a href="/journal.html">Journal</a>
+    <span class="sep">/</span>
+    <a href="#" style="color: var(--text);">Lab: Reaction-Diffusion</a>
+</nav>
+
+<div class="container">
+    <h1>Reaction-Diffusion</h1>
+    <p class="subtitle">GPU-accelerated Gray-Scott model. Click to seed chemical B, watch Turing patterns self-organize from pure math. Every pattern is emergent — none are programmed.</p>
+
+    <div class="studio">
+        <div class="canvas-wrap">
+            <canvas id="canvas"></canvas>
+            <div class="stats" id="stats">0 fps · 0 iterations</div>
+        </div>
+
+        <div class="panel">
+            <div class="section-title">Presets</div>
+            <div class="presets" id="presets"></div>
+
+            <div class="section-title">Parameters</div>
+            <div class="control">
+                <label>Feed rate (f) <span id="v-feed">0.0550</span></label>
+                <input type="range" id="feed" min="0.01" max="0.10" step="0.001" value="0.055">
+            </div>
+            <div class="control">
+                <label>Kill rate (k) <span id="v-kill">0.0620</span></label>
+                <input type="range" id="kill" min="0.03" max="0.07" step="0.001" value="0.062">
+            </div>
+            <div class="control">
+                <label>Diffusion A (dA) <span id="v-da">1.000</span></label>
+                <input type="range" id="da" min="0.1" max="1.5" step="0.01" value="1.0">
+            </div>
+            <div class="control">
+                <label>Diffusion B (dB) <span id="v-db">0.500</span></label>
+                <input type="range" id="db" min="0.1" max="1.0" step="0.01" value="0.5">
+            </div>
+            <div class="control">
+                <label>Speed (steps/frame) <span id="v-speed">8</span></label>
+                <input type="range" id="speed" min="1" max="32" step="1" value="8">
+            </div>
+
+            <div class="section-title">Brush</div>
+            <div class="brush-sizes" id="brushes"></div>
+            <p class="hint">Click to drop chemical B. Drag to paint. Shift+click to erase.</p>
+
+            <div class="section-title">Color Map</div>
+            <div class="color-presets" id="colors"></div>
+
+            <div class="section-title">Actions</div>
+            <div class="btn-row">
+                <button class="btn" id="btn-pause">⏸ Pause</button>
+                <button class="btn" id="btn-reset">↺ Reset</button>
+            </div>
+            <div class="btn-row">
+                <button class="btn" id="btn-seed">🌱 Seed Random</button>
+                <button class="btn" id="btn-export">📷 Export PNG</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ==================== WebGL Reaction-Diffusion ====================
+const canvas = document.getElementById('canvas');
+const gl = canvas.getContext('webgl2', { antialias: false, preserveDrawingBuffer: true });
+if (!gl) { alert('WebGL2 required'); throw new Error('No WebGL2'); }
+
+// --- State ---
+let SIM_W = 512, SIM_H = 512;
+let paused = false;
+let iterations = 0;
+let brushRadius = 15;
+let activePreset = 'mitosis';
+let activeColor = 0;
+let stepsPerFrame = 8;
+
+const presets = {
+    mitosis:     { f: 0.0367, k: 0.0649, dA: 1.0, dB: 0.5, label: '🧬 Mitosis' },
+    coral:       { f: 0.0545, k: 0.062,  dA: 1.0, dB: 0.5, label: '🪸 Coral' },
+    spirals:     { f: 0.014,  k: 0.045,  dA: 1.0, dB: 0.5, label: '🌀 Spirals' },
+    spots:       { f: 0.030,  k: 0.062,  dA: 1.0, dB: 0.5, label: '🔵 Spots' },
+    maze:        { f: 0.029,  k: 0.057,  dA: 1.0, dB: 0.5, label: '🌿 Maze' },
+    worms:       { f: 0.058,  k: 0.065,  dA: 1.0, dB: 0.5, label: '🐛 Worms' },
+    holes:       { f: 0.039,  k: 0.058,  dA: 1.0, dB: 0.5, label: '⭕ Holes' },
+    chaos:       { f: 0.026,  k: 0.051,  dA: 1.0, dB: 0.5, label: '💥 Chaos' },
+    fingerprint: { f: 0.055,  k: 0.062,  dA: 1.0, dB: 0.5, label: '👆 Fingerprint' },
+    pulsing:     { f: 0.025,  k: 0.060,  dA: 1.0, dB: 0.5, label: '💓 Pulsing' },
+};
+
+const colorMaps = [
+    { name: 'Alien',      colors: [[0.0,0.05,0.1], [0.1,0.8,0.4], [0.0,0.2,0.1]] },
+    { name: 'Thermal',    colors: [[0.1,0.0,0.15], [1.0,0.3,0.1], [1.0,0.95,0.2]] },
+    { name: 'Ocean',      colors: [[0.02,0.02,0.08], [0.1,0.4,0.9], [0.6,0.9,1.0]] },
+    { name: 'Neon',       colors: [[0.0,0.0,0.05], [0.9,0.1,0.9], [0.2,1.0,0.8]] },
+    { name: 'Bone',       colors: [[0.95,0.92,0.88], [0.3,0.25,0.2], [0.05,0.03,0.02]] },
+    { name: 'Plasma',     colors: [[0.05,0.0,0.1], [0.7,0.1,0.5], [1.0,0.9,0.3]] },
+    { name: 'Arctic',     colors: [[0.9,0.95,1.0], [0.2,0.5,0.8], [0.0,0.1,0.2]] },
+    { name: 'Ember',      colors: [[0.05,0.02,0.0], [0.8,0.2,0.0], [1.0,0.85,0.3]] },
+];
+
+// --- Shaders ---
+const quadVert = `#version 300 es
+in vec2 a_pos;
+out vec2 v_uv;
+void main() {
+    v_uv = a_pos * 0.5 + 0.5;
+    gl_Position = vec4(a_pos, 0, 1);
+}`;
+
+const simFrag = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform sampler2D u_state;
+uniform vec2 u_texel;
+uniform float u_feed, u_kill, u_dA, u_dB;
+out vec4 fragColor;
+void main() {
+    vec2 c = texture(u_state, v_uv).rg;
+    float a = c.r, b = c.g;
+    
+    // 9-point Laplacian
+    vec2 L = vec2(0.0);
+    L += texture(u_state, v_uv + vec2(-u_texel.x, 0)).rg * 0.2;
+    L += texture(u_state, v_uv + vec2( u_texel.x, 0)).rg * 0.2;
+    L += texture(u_state, v_uv + vec2(0, -u_texel.y)).rg * 0.2;
+    L += texture(u_state, v_uv + vec2(0,  u_texel.y)).rg * 0.2;
+    L += texture(u_state, v_uv + vec2(-u_texel.x, -u_texel.y)).rg * 0.05;
+    L += texture(u_state, v_uv + vec2( u_texel.x, -u_texel.y)).rg * 0.05;
+    L += texture(u_state, v_uv + vec2(-u_texel.x,  u_texel.y)).rg * 0.05;
+    L += texture(u_state, v_uv + vec2( u_texel.x,  u_texel.y)).rg * 0.05;
+    L -= c;
+    
+    float abb = a * b * b;
+    float da = u_dA * L.r - abb + u_feed * (1.0 - a);
+    float db = u_dB * L.g + abb - (u_kill + u_feed) * b;
+    
+    fragColor = vec4(clamp(a + da, 0.0, 1.0), clamp(b + db, 0.0, 1.0), 0, 1);
+}`;
+
+const renderFrag = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform sampler2D u_state;
+uniform vec3 u_c0, u_c1, u_c2;
+out vec4 fragColor;
+void main() {
+    float b = texture(u_state, v_uv).g;
+    // Smooth mapping with two-stop gradient
+    vec3 col = mix(u_c0, u_c1, smoothstep(0.0, 0.25, b));
+    col = mix(col, u_c2, smoothstep(0.25, 0.6, b));
+    fragColor = vec4(col, 1.0);
+}`;
+
+const brushFrag = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform sampler2D u_state;
+uniform vec2 u_brush;
+uniform float u_radius;
+uniform float u_erase;
+uniform vec2 u_texel;
+out vec4 fragColor;
+void main() {
+    vec2 c = texture(u_state, v_uv).rg;
+    float d = length((v_uv - u_brush) / u_texel);
+    if (d < u_radius) {
+        float s = smoothstep(u_radius, u_radius * 0.3, d);
+        if (u_erase > 0.5) {
+            c.g = mix(c.g, 0.0, s);
+            c.r = mix(c.r, 1.0, s);
+        } else {
+            c.g = mix(c.g, 1.0, s);
+        }
+    }
+    fragColor = vec4(c, 0, 1);
+}`;
+
+// --- WebGL Helpers ---
+function compileShader(src, type) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        console.error(gl.getShaderInfoLog(s));
+        return null;
+    }
+    return s;
+}
+
+function createProgram(vs, fs) {
+    const p = gl.createProgram();
+    gl.attachShader(p, compileShader(vs, gl.VERTEX_SHADER));
+    gl.attachShader(p, compileShader(fs, gl.FRAGMENT_SHADER));
+    gl.linkProgram(p);
+    return p;
+}
+
+function createFBO(w, h) {
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, w, h, 0, gl.RGBA, gl.FLOAT, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    const fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    return { tex, fbo };
+}
+
+// --- Check float texture support ---
+const ext = gl.getExtension('EXT_color_buffer_float');
+if (!ext) { alert('Float textures not supported'); throw new Error('No float textures'); }
+
+// --- Init ---
+const simProg = createProgram(quadVert, simFrag);
+const renderProg = createProgram(quadVert, renderFrag);
+const brushProg = createProgram(quadVert, brushFrag);
+
+// Fullscreen quad
+const quadBuf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+
+function setupAttrib(prog) {
+    const loc = gl.getAttribLocation(prog, 'a_pos');
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+}
+
+let fbos = [createFBO(SIM_W, SIM_H), createFBO(SIM_W, SIM_H)];
+let current = 0;
+
+function initState() {
+    const data = new Float32Array(SIM_W * SIM_H * 4);
+    for (let i = 0; i < SIM_W * SIM_H; i++) {
+        data[i * 4] = 1.0;     // A = 1
+        data[i * 4 + 1] = 0.0; // B = 0
+    }
+    // Seed center area
+    const cx = SIM_W / 2, cy = SIM_H / 2, r = 20;
+    for (let y = 0; y < SIM_H; y++) {
+        for (let x = 0; x < SIM_W; x++) {
+            const dx = x - cx, dy = y - cy;
+            if (dx*dx + dy*dy < r*r) {
+                const i = (y * SIM_W + x) * 4;
+                data[i + 1] = 1.0;
+            }
+        }
+    }
+    for (let fbo of fbos) {
+        gl.bindTexture(gl.TEXTURE_2D, fbo.tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, SIM_W, SIM_H, 0, gl.RGBA, gl.FLOAT, data);
+    }
+    iterations = 0;
+}
+
+function seedRandom() {
+    // Read current state, add random blobs
+    const data = new Float32Array(SIM_W * SIM_H * 4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbos[current].fbo);
+    gl.readPixels(0, 0, SIM_W, SIM_H, gl.RGBA, gl.FLOAT, data);
+    
+    const count = 5 + Math.floor(Math.random() * 10);
+    for (let n = 0; n < count; n++) {
+        const cx = Math.random() * SIM_W;
+        const cy = Math.random() * SIM_H;
+        const r = 5 + Math.random() * 15;
+        for (let y = Math.max(0, Math.floor(cy-r)); y < Math.min(SIM_H, Math.ceil(cy+r)); y++) {
+            for (let x = Math.max(0, Math.floor(cx-r)); x < Math.min(SIM_W, Math.ceil(cx+r)); x++) {
+                if ((x-cx)*(x-cx) + (y-cy)*(y-cy) < r*r) {
+                    const i = (y * SIM_W + x) * 4;
+                    data[i + 1] = 1.0;
+                }
+            }
+        }
+    }
+    for (let fbo of fbos) {
+        gl.bindTexture(gl.TEXTURE_2D, fbo.tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, SIM_W, SIM_H, 0, gl.RGBA, gl.FLOAT, data);
+    }
+}
+
+// --- Resize ---
+function resize() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const s = Math.floor(Math.min(rect.width, rect.height) * devicePixelRatio);
+    canvas.width = s;
+    canvas.height = s;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// --- Simulation Step ---
+function simStep() {
+    const src = fbos[current];
+    const dst = fbos[1 - current];
+    
+    gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fbo);
+    gl.viewport(0, 0, SIM_W, SIM_H);
+    gl.useProgram(simProg);
+    
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, src.tex);
+    gl.uniform1i(gl.getUniformLocation(simProg, 'u_state'), 0);
+    gl.uniform2f(gl.getUniformLocation(simProg, 'u_texel'), 1/SIM_W, 1/SIM_H);
+    gl.uniform1f(gl.getUniformLocation(simProg, 'u_feed'), parseFloat(document.getElementById('feed').value));
+    gl.uniform1f(gl.getUniformLocation(simProg, 'u_kill'), parseFloat(document.getElementById('kill').value));
+    gl.uniform1f(gl.getUniformLocation(simProg, 'u_dA'), parseFloat(document.getElementById('da').value));
+    gl.uniform1f(gl.getUniformLocation(simProg, 'u_dB'), parseFloat(document.getElementById('db').value));
+    
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+    setupAttrib(simProg);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    
+    current = 1 - current;
+}
+
+// --- Render ---
+function render() {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.useProgram(renderProg);
+    
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, fbos[current].tex);
+    gl.uniform1i(gl.getUniformLocation(renderProg, 'u_state'), 0);
+    
+    const cm = colorMaps[activeColor].colors;
+    gl.uniform3fv(gl.getUniformLocation(renderProg, 'u_c0'), cm[0]);
+    gl.uniform3fv(gl.getUniformLocation(renderProg, 'u_c1'), cm[1]);
+    gl.uniform3fv(gl.getUniformLocation(renderProg, 'u_c2'), cm[2]);
+    
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+    setupAttrib(renderProg);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+
+// --- Brush ---
+function applyBrush(uvx, uvy, erase) {
+    const src = fbos[current];
+    const dst = fbos[1 - current];
+    
+    gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fbo);
+    gl.viewport(0, 0, SIM_W, SIM_H);
+    gl.useProgram(brushProg);
+    
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, src.tex);
+    gl.uniform1i(gl.getUniformLocation(brushProg, 'u_state'), 0);
+    gl.uniform2f(gl.getUniformLocation(brushProg, 'u_brush'), uvx, uvy);
+    gl.uniform1f(gl.getUniformLocation(brushProg, 'u_radius'), brushRadius);
+    gl.uniform1f(gl.getUniformLocation(brushProg, 'u_erase'), erase ? 1.0 : 0.0);
+    gl.uniform2f(gl.getUniformLocation(brushProg, 'u_texel'), 1/SIM_W, 1/SIM_H);
+    
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+    setupAttrib(brushProg);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    
+    current = 1 - current;
+}
+
+// --- Mouse ---
+let mouseDown = false;
+let shiftDown = false;
+
+canvas.addEventListener('mousedown', (e) => {
+    mouseDown = true;
+    shiftDown = e.shiftKey;
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = 1.0 - (e.clientY - rect.top) / rect.height;
+    applyBrush(x, y, shiftDown);
+});
+
+canvas.addEventListener('mousemove', (e) => {
+    if (!mouseDown) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = 1.0 - (e.clientY - rect.top) / rect.height;
+    applyBrush(x, y, shiftDown);
+});
+
+window.addEventListener('mouseup', () => mouseDown = false);
+
+// Touch support
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const t = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    applyBrush((t.clientX - rect.left) / rect.width, 1.0 - (t.clientY - rect.top) / rect.height, false);
+    mouseDown = true;
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (!mouseDown) return;
+    const t = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    applyBrush((t.clientX - rect.left) / rect.width, 1.0 - (t.clientY - rect.top) / rect.height, false);
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => mouseDown = false);
+
+// --- UI ---
+// Presets
+const presetsEl = document.getElementById('presets');
+for (const [key, p] of Object.entries(presets)) {
+    const btn = document.createElement('button');
+    btn.className = 'preset-btn' + (key === activePreset ? ' active' : '');
+    btn.textContent = p.label;
+    btn.onclick = () => {
+        activePreset = key;
+        document.getElementById('feed').value = p.f;
+        document.getElementById('kill').value = p.k;
+        document.getElementById('da').value = p.dA;
+        document.getElementById('db').value = p.dB;
+        updateLabels();
+        document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        initState();
+    };
+    presetsEl.appendChild(btn);
+}
+
+// Colors
+const colorsEl = document.getElementById('colors');
+colorMaps.forEach((cm, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'color-btn' + (i === 0 ? ' active' : '');
+    btn.style.background = `linear-gradient(135deg, rgb(${cm.colors[0].map(c=>c*255)}), rgb(${cm.colors[1].map(c=>c*255)}), rgb(${cm.colors[2].map(c=>c*255)}))`;
+    btn.title = cm.name;
+    btn.onclick = () => {
+        activeColor = i;
+        document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    };
+    colorsEl.appendChild(btn);
+});
+
+// Brush sizes
+const brushSizes = [5, 10, 15, 25, 40];
+const brushesEl = document.getElementById('brushes');
+brushSizes.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'brush-btn' + (s === brushRadius ? ' active' : '');
+    const dim = Math.max(20, s * 1.2);
+    btn.style.width = dim + 'px';
+    btn.style.height = dim + 'px';
+    const dot = document.createElement('div');
+    dot.className = 'brush-dot';
+    dot.style.width = Math.max(4, s * 0.5) + 'px';
+    dot.style.height = Math.max(4, s * 0.5) + 'px';
+    btn.appendChild(dot);
+    btn.onclick = () => {
+        brushRadius = s;
+        document.querySelectorAll('.brush-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    };
+    brushesEl.appendChild(btn);
+});
+
+// Sliders
+function updateLabels() {
+    document.getElementById('v-feed').textContent = parseFloat(document.getElementById('feed').value).toFixed(4);
+    document.getElementById('v-kill').textContent = parseFloat(document.getElementById('kill').value).toFixed(4);
+    document.getElementById('v-da').textContent = parseFloat(document.getElementById('da').value).toFixed(3);
+    document.getElementById('v-db').textContent = parseFloat(document.getElementById('db').value).toFixed(3);
+    stepsPerFrame = parseInt(document.getElementById('speed').value);
+    document.getElementById('v-speed').textContent = stepsPerFrame;
+}
+['feed','kill','da','db','speed'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+        updateLabels();
+        // Clear active preset when manually adjusting
+        document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    });
+});
+
+// Buttons
+document.getElementById('btn-pause').onclick = () => {
+    paused = !paused;
+    document.getElementById('btn-pause').textContent = paused ? '▶ Play' : '⏸ Pause';
+};
+document.getElementById('btn-reset').onclick = initState;
+document.getElementById('btn-seed').onclick = seedRandom;
+document.getElementById('btn-export').onclick = () => {
+    render();
+    const link = document.createElement('a');
+    link.download = `reaction-diffusion-${Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+};
+
+// --- Main Loop ---
+let lastTime = performance.now();
+let frameCount = 0;
+let fpsDisplay = 0;
+
+function loop(now) {
+    frameCount++;
+    if (now - lastTime > 1000) {
+        fpsDisplay = Math.round(frameCount * 1000 / (now - lastTime));
+        frameCount = 0;
+        lastTime = now;
+    }
+    
+    if (!paused) {
+        for (let i = 0; i < stepsPerFrame; i++) {
+            simStep();
+            iterations++;
+        }
+    }
+    render();
+    
+    document.getElementById('stats').textContent = `${fpsDisplay} fps · ${iterations.toLocaleString()} iterations`;
+    requestAnimationFrame(loop);
+}
+
+// --- Start ---
+// Load default preset
+const def = presets[activePreset];
+document.getElementById('feed').value = def.f;
+document.getElementById('kill').value = def.k;
+document.getElementById('da').value = def.dA;
+document.getElementById('db').value = def.dB;
+updateLabels();
+initState();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
