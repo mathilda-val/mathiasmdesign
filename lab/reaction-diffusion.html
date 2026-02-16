@@ -88,6 +88,7 @@
             border-radius: 12px;
             overflow: hidden;
             aspect-ratio: 1;
+            max-height: calc(100vh - 220px);
         }
 
         canvas {
@@ -527,18 +528,26 @@ let current = 0;
 
 function initState() {
     const data = new Float32Array(SIM_W * SIM_H * 4);
+    // Fill with A=1, B=0 + slight noise to break symmetry
     for (let i = 0; i < SIM_W * SIM_H; i++) {
-        data[i * 4] = 1.0;     // A = 1
-        data[i * 4 + 1] = 0.0; // B = 0
+        data[i * 4] = 1.0;
+        data[i * 4 + 1] = 0.0;
     }
-    // Seed center area
-    const cx = SIM_W / 2, cy = SIM_H / 2, r = 20;
-    for (let y = 0; y < SIM_H; y++) {
-        for (let x = 0; x < SIM_W; x++) {
-            const dx = x - cx, dy = y - cy;
-            if (dx*dx + dy*dy < r*r) {
-                const i = (y * SIM_W + x) * 4;
-                data[i + 1] = 1.0;
+    // Seed many blobs with noisy edges for robust pattern formation
+    const count = 15 + Math.floor(Math.random() * 10);
+    for (let n = 0; n < count; n++) {
+        const cx = Math.random() * SIM_W;
+        const cy = Math.random() * SIM_H;
+        const r = 3 + Math.random() * 12;
+        for (let y = Math.max(0, Math.floor(cy-r)); y < Math.min(SIM_H, Math.ceil(cy+r)); y++) {
+            for (let x = Math.max(0, Math.floor(cx-r)); x < Math.min(SIM_W, Math.ceil(cx+r)); x++) {
+                const d2 = (x-cx)*(x-cx) + (y-cy)*(y-cy);
+                if (d2 < r*r) {
+                    const i = (y * SIM_W + x) * 4;
+                    // Noisy B value — helps the reaction get started
+                    data[i] = 0.5 + Math.random() * 0.5;  // A perturbed
+                    data[i + 1] = 0.25 + Math.random() * 0.75; // B noisy
+                }
             }
         }
     }
@@ -713,7 +722,6 @@ for (const [key, p] of Object.entries(presets)) {
         document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         initState();
-        seedRandom();
     };
     presetsEl.appendChild(btn);
 }
@@ -821,7 +829,6 @@ document.getElementById('da').value = def.dA;
 document.getElementById('db').value = def.dB;
 updateLabels();
 initState();
-seedRandom();
 requestAnimationFrame(loop);
 </script>
 </body>
