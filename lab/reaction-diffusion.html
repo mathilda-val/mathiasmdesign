@@ -713,6 +713,7 @@ for (const [key, p] of Object.entries(presets)) {
         document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         initState();
+        seedRandom();
     };
     presetsEl.appendChild(btn);
 }
@@ -820,6 +821,7 @@ document.getElementById('da').value = def.dA;
 document.getElementById('db').value = def.dB;
 updateLabels();
 initState();
+seedRandom();
 requestAnimationFrame(loop);
 </script>
 </body>
