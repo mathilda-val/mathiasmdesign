@@ -171,3 +171,32 @@
         font-size: 1.4rem;
     }
 }
+
+/* Source citations */
+.entry-sources {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+.entry-sources p {
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 0.5rem;
+}
+.entry-sources ul {
+    list-style: none;
+    padding: 0;
+}
+.entry-sources li {
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 0.3rem;
+}
+.entry-sources a {
+    color: rgba(255,255,255,0.5);
+    text-decoration: underline;
+    text-decoration-color: rgba(255,255,255,0.2);
+}
+.entry-sources a:hover {
+    color: rgba(255,255,255,0.8);
+}
