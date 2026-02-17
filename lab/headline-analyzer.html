@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Headline Analyzer — M×M Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0a0f;
+            color: #e0e0e0;
+            font-family: 'Space Grotesk', sans-serif;
+            min-height: 100vh;
+        }
+        .grain {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 80px 24px 60px;
+            position: relative;
+            z-index: 1;
+        }
+        .back {
+            position: fixed; top: 16px; left: 16px;
+            color: #666; text-decoration: none; font-size: 14px;
+            transition: color 0.2s;
+            z-index: 10;
+        }
+        .back:hover { color: #fff; }
+        h1 {
+            font-size: clamp(28px, 5vw, 42px);
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #ff6b35, #f7c948);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle { color: #888; margin-bottom: 40px; font-size: 16px; }
+
+        /* Input */
+        .input-area {
+            position: relative;
+            margin-bottom: 32px;
+        }
+        .headline-input {
+            width: 100%;
+            padding: 20px 24px;
+            background: #111118;
+            border: 2px solid #222;
+            border-radius: 12px;
+            color: #fff;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 22px;
+            font-weight: 600;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        .headline-input:focus { border-color: #ff6b35; }
+        .headline-input::placeholder { color: #444; font-weight: 400; }
+        .char-count {
+            position: absolute; right: 16px; bottom: -22px;
+            font-size: 12px; color: #555; font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Score ring */
+        .score-section {
+            display: flex;
+            gap: 40px;
+            align-items: flex-start;
+            margin-bottom: 40px;
+        }
+        .score-ring-wrap {
+            flex-shrink: 0;
+            width: 160px;
+            height: 160px;
+            position: relative;
+        }
+        .score-ring {
+            width: 160px;
+            height: 160px;
+            transform: rotate(-90deg);
+        }
+        .score-ring-bg {
+            fill: none;
+            stroke: #1a1a24;
+            stroke-width: 10;
+        }
+        .score-ring-fill {
+            fill: none;
+            stroke-width: 10;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.8s ease, stroke 0.5s;
+        }
+        .score-number {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .score-val {
+            font-size: 42px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            transition: color 0.5s;
+        }
+        .score-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .score-breakdown {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .metric {
+            background: #111118;
+            border-radius: 10px;
+            padding: 14px 16px;
+            border: 1px solid #1a1a24;
+        }
+        .metric-label {
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        .metric-bar-wrap {
+            height: 6px;
+            background: #1a1a24;
+            border-radius: 3px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        .metric-bar {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.6s ease, background 0.5s;
+        }
+        .metric-val {
+            font-size: 20px;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Word highlighting */
+        .word-breakdown {
+            background: #111118;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 32px;
+            border: 1px solid #1a1a24;
+        }
+        .word-breakdown h3 {
+            font-size: 14px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+        }
+        .word-display {
+            font-size: 20px;
+            line-height: 2;
+            font-weight: 500;
+        }
+        .word-display span {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin: 2px;
+            transition: all 0.3s;
+        }
+        .w-power { background: rgba(255, 107, 53, 0.2); color: #ff6b35; }
+        .w-emotional { background: rgba(247, 201, 72, 0.2); color: #f7c948; }
+        .w-number { background: rgba(100, 200, 255, 0.2); color: #64c8ff; }
+        .w-common { background: rgba(100, 100, 100, 0.1); color: #888; }
+        .w-filler { background: rgba(255, 80, 80, 0.15); color: #ff5050; text-decoration: line-through; text-decoration-color: rgba(255,80,80,0.4); }
+
+        .legend {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #888;
+        }
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+        }
+
+        /* Suggestions */
+        .suggestions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+        .suggestion {
+            background: #111118;
+            border-radius: 10px;
+            padding: 16px 20px;
+            border-left: 3px solid;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .suggestion.good { border-color: #4ade80; }
+        .suggestion.warn { border-color: #f7c948; }
+        .suggestion.bad { border-color: #ff5050; }
+        .suggestion .tag {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        .suggestion.good .tag { color: #4ade80; }
+        .suggestion.warn .tag { color: #f7c948; }
+        .suggestion.bad .tag { color: #ff5050; }
+
+        /* Samples */
+        .samples {
+            margin-top: 40px;
+        }
+        .samples h3 {
+            font-size: 14px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+        }
+        .sample-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .sample-btn {
+            background: #111118;
+            border: 1px solid #222;
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: #ccc;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 13px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s;
+        }
+        .sample-btn:hover {
+            border-color: #ff6b35;
+            color: #fff;
+            background: #151520;
+        }
+        .sample-cat {
+            font-size: 10px;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #444;
+            padding: 60px 0;
+            font-size: 16px;
+        }
+
+        @media (max-width: 700px) {
+            .score-section { flex-direction: column; align-items: center; }
+            .score-breakdown { width: 100%; }
+            .sample-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="grain"></div>
+    <a href="../index.html" class="back">← Back</a>
+
+    <div class="container">
+        <h1>Headline Analyzer</h1>
+        <p class="subtitle">Score your headlines for click-worthiness. Powered by CoSchedule-style analysis — emotional impact, power words, structure, and length.</p>
+
+        <div class="input-area">
+            <input type="text" class="headline-input" id="input" placeholder="Type a headline..." maxlength="200" autocomplete="off">
+            <span class="char-count" id="charCount">0 / 200</span>
+        </div>
+
+        <div id="results" style="display:none">
+            <div class="score-section">
+                <div class="score-ring-wrap">
+                    <svg class="score-ring" viewBox="0 0 160 160">
+                        <circle class="score-ring-bg" cx="80" cy="80" r="65"/>
+                        <circle class="score-ring-fill" id="ringFill" cx="80" cy="80" r="65"/>
+                    </svg>
+                    <div class="score-number">
+                        <div class="score-val" id="scoreVal">0</div>
+                        <div class="score-label">Overall</div>
+                    </div>
+                </div>
+                <div class="score-breakdown">
+                    <div class="metric">
+                        <div class="metric-label">Word Balance</div>
+                        <div class="metric-val" id="mWordBal">—</div>
+                        <div class="metric-bar-wrap"><div class="metric-bar" id="bWordBal"></div></div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Headline Type</div>
+                        <div class="metric-val" id="mType" style="font-size:14px">—</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Character Count</div>
+                        <div class="metric-val" id="mChars">—</div>
+                        <div class="metric-bar-wrap"><div class="metric-bar" id="bChars"></div></div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Word Count</div>
+                        <div class="metric-val" id="mWords">—</div>
+                        <div class="metric-bar-wrap"><div class="metric-bar" id="bWords"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="word-breakdown">
+                <h3>Word Analysis</h3>
+                <div class="word-display" id="wordDisplay"></div>
+                <div class="legend">
+                    <div class="legend-item"><div class="legend-dot" style="background:#ff6b35"></div> Power</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#f7c948"></div> Emotional</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#64c8ff"></div> Number</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:rgba(255,80,80,0.4)"></div> Filler</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#333"></div> Common</div>
+                </div>
+            </div>
+
+            <div class="suggestions" id="suggestions"></div>
+        </div>
+
+        <div class="empty-state" id="empty">
+            Type a headline above to see the analysis ✍️
+        </div>
+
+        <div class="samples">
+            <h3>Try These</h3>
+            <div class="sample-grid">
+                <button class="sample-btn" onclick="tryHeadline(this)">
+                    <div class="sample-cat">B2B SaaS</div>
+                    How We Reduced Guard Tour Costs by 47% with One Integration
+                </button>
+                <button class="sample-btn" onclick="tryHeadline(this)">
+                    <div class="sample-cat">Listicle</div>
+                    7 Proven Security Patrol Strategies That Actually Work in 2026
+                </button>
+                <button class="sample-btn" onclick="tryHeadline(this)">
+                    <div class="sample-cat">Curiosity Gap</div>
+                    The Hidden Reason Most Security Companies Lose Their Best Guards
+                </button>
+                <button class="sample-btn" onclick="tryHeadline(this)">
+                    <div class="sample-cat">How-To</div>
+                    How to Automate Your Entire Guard Patrol Workflow in Under an Hour
+                </button>
+                <button class="sample-btn" onclick="tryHeadline(this)">
+                    <div class="sample-cat">Viral / Hook</div>
+                    We Let an AI Run Our Marketing for a Week — Here's What Happened
+                </button>
+                <button class="sample-btn" onclick="tryHeadline(this)">
+                    <div class="sample-cat">Weak Example</div>
+                    Our New Product Update
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const POWER_WORDS = new Set([
+        'proven','secret','ultimate','exclusive','guaranteed','instant','free','new','now',
+        'discover','unleash','breakthrough','revolutionary','transform','dominate','crush',
+        'hack','boost','skyrocket','explode','insane','epic','powerful','deadly','massive',
+        'critical','urgent','warning','alert','banned','controversial','shocking','stunning',
+        'remarkable','extraordinary','incredible','unbelievable','mind-blowing','genius',
+        'effortless','simple','easy','quick','fast','rapid','overnight','immediately',
+        'essential','must-have','game-changing','life-changing','world-class','best',
+        'worst','never','always','every','complete','definitive','absolute','total',
+        'reduce','reduced','increase','increased','improve','improved','automate','automated',
+        'save','eliminate','maximize','optimize','supercharge','accelerate','amplify',
+        'unlock','leverage','master','conquer','overcome','demolish','destroy'
+    ]);
+
+    const EMOTIONAL_WORDS = new Set([
+        'love','hate','fear','angry','happy','sad','beautiful','ugly','amazing','terrible',
+        'awesome','horrible','wonderful','dreadful','brilliant','stupid','clever','foolish',
+        'brave','coward','hero','villain','magic','miracle','disaster','tragedy','triumph',
+        'victory','defeat','struggle','fight','battle','war','peace','dream','nightmare',
+        'paradise','hell','heaven','passion','rage','fury','joy','sorrow','grief','hope',
+        'despair','trust','betray','hidden','lost','found','broken','whole','dark','light',
+        'risk','danger','safe','protect','vulnerable','exposed','naked','raw','honest',
+        'real','true','authentic','fake','lie','truth','painful','heartbreaking','inspiring'
+    ]);
+
+    const FILLER_WORDS = new Set([
+        'very','really','just','quite','rather','somewhat','basically','actually','literally',
+        'things','stuff','nice','good','great','interesting','important','simply','maybe'
+    ]);
+
+    const COMMON_WORDS = new Set([
+        'the','a','an','and','or','but','in','on','at','to','for','of','with','by','from',
+        'is','are','was','were','be','been','being','have','has','had','do','does','did',
+        'will','would','could','should','may','might','can','shall','it','its','this',
+        'that','these','those','my','your','his','her','our','their','what','which','who',
+        'how','when','where','why','not','no','so','if','than','then','into','up','out',
+        'about','as','we','you','i','they','he','she','us','them','one','all','most','some',
+        'any','each','here','there','own','other','more','less','much','many'
+    ]);
+
+    function classifyWord(word) {
+        const lower = word.toLowerCase().replace(/[^a-z0-9-]/g, '');
+        if (!lower) return 'common';
+        if (/^\d+[\d,%$€£]*$/.test(lower) || /^\d+[kKmMbB]?\+?$/.test(lower)) return 'number';
+        if (POWER_WORDS.has(lower)) return 'power';
+        if (EMOTIONAL_WORDS.has(lower)) return 'emotional';
+        if (FILLER_WORDS.has(lower)) return 'filler';
+        if (COMMON_WORDS.has(lower)) return 'common';
+        return 'uncommon';
+    }
+
+    function detectType(text) {
+        const t = text.toLowerCase().trim();
+        if (/^\d+\s/.test(t) || /\b\d+\s+(ways|tips|tricks|reasons|steps|things|strategies|secrets|mistakes|hacks|tools|rules|ideas|examples|signs|facts|myths|lessons|methods)\b/i.test(t)) return 'List / Numbered';
+        if (/^how\s+(to|i|we|they|he|she)\b/i.test(t)) return 'How-To';
+        if (/^(what|why|when|where|who|which|is|are|can|do|does|will|should|could|would|have|has)\b/i.test(t) || t.endsWith('?')) return 'Question';
+        if (/^(the|a|an)\s+(hidden|secret|real|true|surprising|shocking|strange|weird|dark|little-known|untold)\b/i.test(t)) return 'Curiosity Gap';
+        if (/^(stop|don\'t|never|avoid|quit|warning)\b/i.test(t)) return 'Negative / Warning';
+        if (/\b(vs\.?|versus|compared|or)\b/i.test(t)) return 'Comparison';
+        if (/^(I|we|my|our)\s/i.test(t) || /here\'s what/i.test(t)) return 'Personal Story';
+        return 'Statement';
+    }
+
+    function scoreHeadline(text) {
+        const words = text.trim().split(/\s+/).filter(Boolean);
+        const charLen = text.trim().length;
+        const wordCount = words.length;
+
+        if (wordCount === 0) return null;
+
+        // Classify each word
+        const classified = words.map(w => ({ word: w, type: classifyWord(w) }));
+
+        const powerCount = classified.filter(w => w.type === 'power').length;
+        const emotionalCount = classified.filter(w => w.type === 'emotional').length;
+        const numberCount = classified.filter(w => w.type === 'number').length;
+        const fillerCount = classified.filter(w => w.type === 'filler').length;
+        const uncommonCount = classified.filter(w => w.type === 'uncommon').length;
+
+        // Length score (ideal: 6-13 words, 50-70 chars)
+        let lengthScore = 100;
+        if (wordCount < 4) lengthScore = 30;
+        else if (wordCount < 6) lengthScore = 60;
+        else if (wordCount <= 13) lengthScore = 100;
+        else if (wordCount <= 18) lengthScore = 70;
+        else lengthScore = 40;
+
+        let charScore = 100;
+        if (charLen < 20) charScore = 30;
+        else if (charLen < 40) charScore = 60;
+        else if (charLen <= 70) charScore = 100;
+        else if (charLen <= 100) charScore = 75;
+        else charScore = 50;
+
+        // Power word ratio (ideal: 1-3 per headline)
+        let powerScore = Math.min(powerCount * 30, 100);
+
+        // Emotional word bonus
+        let emotionScore = Math.min(emotionalCount * 35, 100);
+
+        // Number bonus
+        let numberScore = numberCount > 0 ? 80 : 0;
+
+        // Filler penalty
+        let fillerPenalty = fillerCount * 15;
+
+        // Type bonus
+        const type = detectType(text);
+        let typeBonus = 0;
+        if (['List / Numbered', 'How-To', 'Question', 'Curiosity Gap'].includes(type)) typeBonus = 15;
+        if (type === 'Personal Story') typeBonus = 10;
+
+        // Word balance: mix of power + emotional + uncommon vs common
+        const interestingRatio = (powerCount + emotionalCount + uncommonCount + numberCount) / wordCount;
+        let balanceScore = Math.min(Math.round(interestingRatio * 150), 100);
+
+        // Overall score
+        let overall = Math.round(
+            lengthScore * 0.15 +
+            charScore * 0.10 +
+            powerScore * 0.20 +
+            emotionScore * 0.15 +
+            numberScore * 0.10 +
+            balanceScore * 0.20 +
+            typeBonus * 0.10 / 0.10 // just adds bonus
+        );
+        overall = overall + typeBonus - fillerPenalty;
+        overall = Math.max(0, Math.min(100, overall));
+
+        return {
+            overall, classified, type,
+            wordCount, charLen,
+            powerCount, emotionalCount, numberCount, fillerCount,
+            lengthScore, charScore, balanceScore,
+            suggestions: buildSuggestions(text, words, classified, type, wordCount, charLen, powerCount, emotionalCount, numberCount, fillerCount)
+        };
+    }
+
+    function buildSuggestions(text, words, classified, type, wordCount, charLen, powerCount, emotionalCount, numberCount, fillerCount) {
+        const s = [];
+
+        // Length
+        if (wordCount < 4) s.push({ type: 'bad', text: 'Too short. Headlines under 4 words lack enough information to generate curiosity.' });
+        else if (wordCount >= 6 && wordCount <= 13) s.push({ type: 'good', text: `Word count (${wordCount}) is in the sweet spot. 6-13 words perform best.` });
+        else if (wordCount > 18) s.push({ type: 'bad', text: `At ${wordCount} words, this headline is too long. Aim for 6-13 words.` });
+        else if (wordCount > 13) s.push({ type: 'warn', text: `Slightly long at ${wordCount} words. Can you tighten it to under 14?` });
+
+        if (charLen > 70) s.push({ type: 'warn', text: `${charLen} characters — may get truncated in Google (≈60) or email subjects (≈50). Consider shortening.` });
+        else if (charLen >= 40 && charLen <= 70) s.push({ type: 'good', text: `${charLen} characters — fits nicely in search results and email subjects.` });
+
+        // Power words
+        if (powerCount === 0) s.push({ type: 'warn', text: 'No power words detected. Try adding one: "proven," "secret," "instant," "breakthrough," "eliminate," "automate."' });
+        else if (powerCount >= 1 && powerCount <= 3) s.push({ type: 'good', text: `${powerCount} power word${powerCount > 1 ? 's' : ''} — nice. These drive clicks.` });
+        else if (powerCount > 3) s.push({ type: 'warn', text: `${powerCount} power words might feel clickbaity. Consider dialing back to 1-2.` });
+
+        // Emotional
+        if (emotionalCount === 0 && powerCount === 0) s.push({ type: 'bad', text: 'No emotional or power words. This headline reads flat. Add words that make people feel something.' });
+        else if (emotionalCount > 0) s.push({ type: 'good', text: `${emotionalCount} emotional word${emotionalCount > 1 ? 's' : ''} — triggers a response.` });
+
+        // Numbers
+        if (numberCount > 0) s.push({ type: 'good', text: 'Contains a number — headlines with numbers get 36% more clicks on average.' });
+        else if (type !== 'Question' && type !== 'Personal Story') s.push({ type: 'warn', text: 'No numbers. Adding a specific number (e.g., "47%," "7 steps") adds credibility and specificity.' });
+
+        // Fillers
+        if (fillerCount > 0) {
+            const fillers = classified.filter(w => w.type === 'filler').map(w => `"${w.word}"`).join(', ');
+            s.push({ type: 'bad', text: `Filler word${fillerCount > 1 ? 's' : ''}: ${fillers}. Remove these — they add nothing.` });
+        }
+
+        // Type
+        if (type === 'Statement') s.push({ type: 'warn', text: 'Plain statement format. Consider restructuring as a question, list, or how-to for higher engagement.' });
+        if (type === 'List / Numbered') s.push({ type: 'good', text: 'List format — one of the highest-performing headline structures.' });
+        if (type === 'How-To') s.push({ type: 'good', text: 'How-to format — signals practical value to readers.' });
+        if (type === 'Question') s.push({ type: 'good', text: 'Question format — engages curiosity and creates a knowledge gap.' });
+        if (type === 'Curiosity Gap') s.push({ type: 'good', text: 'Curiosity gap detected — one of the most powerful click drivers when not overused.' });
+
+        // Starts with number
+        if (/^\d/.test(text.trim())) s.push({ type: 'good', text: 'Starts with a number — eye-catching in feeds and search results.' });
+
+        return s;
+    }
+
+    function colorForScore(score) {
+        if (score >= 70) return '#4ade80';
+        if (score >= 40) return '#f7c948';
+        return '#ff5050';
+    }
+
+    function render(result) {
+        if (!result) {
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('empty').style.display = 'block';
+            return;
+        }
+        document.getElementById('results').style.display = 'block';
+        document.getElementById('empty').style.display = 'none';
+
+        const color = colorForScore(result.overall);
+
+        // Ring
+        const circ = 2 * Math.PI * 65;
+        const fill = document.getElementById('ringFill');
+        fill.style.strokeDasharray = circ;
+        fill.style.strokeDashoffset = circ - (circ * result.overall / 100);
+        fill.style.stroke = color;
+
+        const scoreEl = document.getElementById('scoreVal');
+        scoreEl.textContent = result.overall;
+        scoreEl.style.color = color;
+
+        // Metrics
+        document.getElementById('mWordBal').textContent = result.balanceScore + '%';
+        document.getElementById('bWordBal').style.width = result.balanceScore + '%';
+        document.getElementById('bWordBal').style.background = colorForScore(result.balanceScore);
+
+        document.getElementById('mType').textContent = result.type;
+
+        document.getElementById('mChars').textContent = result.charLen;
+        const charPct = Math.min(result.charScore, 100);
+        document.getElementById('bChars').style.width = charPct + '%';
+        document.getElementById('bChars').style.background = colorForScore(result.charScore);
+
+        document.getElementById('mWords').textContent = result.wordCount;
+        const wordPct = Math.min(result.lengthScore, 100);
+        document.getElementById('bWords').style.width = wordPct + '%';
+        document.getElementById('bWords').style.background = colorForScore(result.lengthScore);
+
+        // Word display
+        const wd = document.getElementById('wordDisplay');
+        wd.innerHTML = result.classified.map(w => {
+            const cls = w.type === 'uncommon' ? '' : 'w-' + w.type;
+            return `<span class="${cls}">${w.word}</span>`;
+        }).join(' ');
+
+        // Suggestions
+        const sg = document.getElementById('suggestions');
+        sg.innerHTML = result.suggestions.map(s =>
+            `<div class="suggestion ${s.type}"><div class="tag">${s.type === 'good' ? '✓ Strength' : s.type === 'warn' ? '⚡ Suggestion' : '✗ Issue'}</div>${s.text}</div>`
+        ).join('');
+    }
+
+    const input = document.getElementById('input');
+    const charCount = document.getElementById('charCount');
+
+    input.addEventListener('input', () => {
+        const val = input.value;
+        charCount.textContent = val.length + ' / 200';
+        render(scoreHeadline(val));
+    });
+
+    function tryHeadline(btn) {
+        const text = btn.textContent.replace(btn.querySelector('.sample-cat').textContent, '').trim();
+        input.value = text;
+        input.dispatchEvent(new Event('input'));
+        input.focus();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    </script>
+</body>
+</html>
