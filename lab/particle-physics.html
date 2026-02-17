@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Particle Universe — M×M Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0a0f;
+            color: #e0e0e0;
+            font-family: 'Space Grotesk', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            cursor: crosshair;
+        }
+
+        .controls {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            padding: 20px;
+            width: 260px;
+            z-index: 10;
+            transition: transform 0.3s ease;
+        }
+        .controls.collapsed {
+            transform: translateX(calc(100% + 20px));
+        }
+        .controls h2 {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #888;
+            margin-bottom: 16px;
+        }
+        .control-group {
+            margin-bottom: 14px;
+        }
+        .control-group label {
+            display: block;
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+        .control-group input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            background: rgba(255,255,255,0.06);
+            height: 4px;
+            border-radius: 2px;
+            outline: none;
+        }
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+        }
+        .mode-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+        .mode-btn {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #aaa;
+            padding: 8px 4px;
+            border-radius: 8px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        .mode-btn:hover {
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+        }
+        .mode-btn.active {
+            background: rgba(255,255,255,0.12);
+            border-color: rgba(255,255,255,0.25);
+            color: #fff;
+        }
+        .toggle-btn {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #888;
+            font-size: 18px;
+            cursor: pointer;
+            z-index: 11;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.3s;
+        }
+        .toggle-btn:hover { color: #fff; }
+
+        .back-link {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            color: #555;
+            text-decoration: none;
+            font-size: 13px;
+            z-index: 10;
+            transition: color 0.2s;
+        }
+        .back-link:hover { color: #fff; }
+
+        .stats {
+            position: fixed;
+            bottom: 16px;
+            left: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: #444;
+            z-index: 10;
+        }
+
+        .hint {
+            position: fixed;
+            bottom: 16px;
+            right: 16px;
+            font-size: 11px;
+            color: #333;
+            z-index: 10;
+            text-align: right;
+        }
+
+        .color-swatches {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .color-swatch {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .color-swatch:hover { transform: scale(1.15); }
+        .color-swatch.active { border-color: #fff; }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <a href="../index.html" class="back-link">← back</a>
+
+    <button class="toggle-btn" id="toggleBtn" title="Toggle controls">⚙</button>
+
+    <div class="controls" id="controls">
+        <h2>Particle Universe</h2>
+
+        <div class="control-group">
+            <label>Force Mode</label>
+            <div class="mode-buttons" id="forceMode">
+                <button class="mode-btn active" data-mode="attract">Attract</button>
+                <button class="mode-btn" data-mode="repel">Repel</button>
+                <button class="mode-btn" data-mode="vortex">Vortex</button>
+                <button class="mode-btn" data-mode="gravity">Gravity</button>
+                <button class="mode-btn" data-mode="orbit">Orbit</button>
+                <button class="mode-btn" data-mode="fireworks">Fireworks</button>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>Color Theme</label>
+            <div class="color-swatches" id="colorTheme"></div>
+        </div>
+
+        <div class="control-group">
+            <label>Particles: <span id="countVal">2000</span></label>
+            <input type="range" id="particleCount" min="200" max="8000" value="2000" step="200">
+        </div>
+
+        <div class="control-group">
+            <label>Force Strength: <span id="forceVal">50</span></label>
+            <input type="range" id="forceStrength" min="5" max="200" value="50">
+        </div>
+
+        <div class="control-group">
+            <label>Trail Length: <span id="trailVal">85</span>%</label>
+            <input type="range" id="trailLength" min="0" max="99" value="85">
+        </div>
+
+        <div class="control-group">
+            <label>Particle Size: <span id="sizeVal">2</span></label>
+            <input type="range" id="particleSize" min="1" max="6" value="2" step="0.5">
+        </div>
+
+        <div class="control-group">
+            <label>Damping: <span id="dampVal">98</span>%</label>
+            <input type="range" id="damping" min="80" max="100" value="98">
+        </div>
+
+        <div class="control-group">
+            <div class="mode-buttons">
+                <button class="mode-btn" id="resetBtn">Reset</button>
+                <button class="mode-btn" id="explodeBtn">Explode!</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="stats" id="stats"></div>
+    <div class="hint">click & drag to interact · scroll to resize force</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+// Hi-DPI
+let dpr = window.devicePixelRatio || 1;
+let W, H;
+function resize() {
+    dpr = window.devicePixelRatio || 1;
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Color themes
+const themes = {
+    nebula:    { name: 'Nebula',    bg: '#0a0a0f', colors: ['#ff6b9d','#c084fc','#60a5fa','#34d399','#fbbf24'] },
+    fire:      { name: 'Fire',      bg: '#0f0a05', colors: ['#ff4500','#ff6b00','#ff8c00','#ffa500','#ffd700'] },
+    ocean:     { name: 'Ocean',     bg: '#050a0f', colors: ['#0077b6','#00b4d8','#48cae4','#90e0ef','#caf0f8'] },
+    matrix:    { name: 'Matrix',    bg: '#000a00', colors: ['#00ff41','#00cc33','#009926','#39ff14','#7fff00'] },
+    aurora:    { name: 'Aurora',    bg: '#05050f', colors: ['#00ff87','#60efff','#ff6bcb','#ffde7d','#00b8ff'] },
+    mono:      { name: 'Mono',      bg: '#0a0a0a', colors: ['#ffffff','#cccccc','#999999','#666666','#ffffff'] },
+    sunset:    { name: 'Sunset',    bg: '#0f0508', colors: ['#ff006e','#fb5607','#ffbe0b','#8338ec','#3a86ff'] },
+    blood:     { name: 'Blood',     bg: '#0a0005', colors: ['#ff0a54','#ff477e','#ff7096','#ff85a1','#ff99ac'] },
+};
+
+// Build color swatches
+const swatchContainer = document.getElementById('colorTheme');
+let currentTheme = 'nebula';
+Object.entries(themes).forEach(([key, theme]) => {
+    const el = document.createElement('div');
+    el.className = 'color-swatch' + (key === currentTheme ? ' active' : '');
+    el.style.background = `linear-gradient(135deg, ${theme.colors[0]}, ${theme.colors[2]})`;
+    el.title = theme.name;
+    el.onclick = () => {
+        currentTheme = key;
+        document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+        el.classList.add('active');
+        // Recolor existing particles
+        particles.forEach(p => {
+            p.color = themes[currentTheme].colors[Math.floor(Math.random() * themes[currentTheme].colors.length)];
+        });
+    };
+    swatchContainer.appendChild(el);
+});
+
+// State
+let config = {
+    count: 2000,
+    forceStrength: 50,
+    trailAlpha: 0.85,
+    size: 2,
+    damping: 0.98,
+    mode: 'attract',
+};
+
+let mouse = { x: W / 2, y: H / 2, down: false, active: false };
+let particles = [];
+
+class Particle {
+    constructor() {
+        this.reset();
+    }
+    reset() {
+        this.x = Math.random() * W;
+        this.y = Math.random() * H;
+        this.vx = (Math.random() - 0.5) * 2;
+        this.vy = (Math.random() - 0.5) * 2;
+        this.color = themes[currentTheme].colors[Math.floor(Math.random() * themes[currentTheme].colors.length)];
+        this.life = 1;
+    }
+}
+
+function initParticles(n) {
+    particles = [];
+    for (let i = 0; i < n; i++) particles.push(new Particle());
+}
+initParticles(config.count);
+
+// Physics
+function applyForce(p) {
+    if (!mouse.active) return;
+
+    const dx = mouse.x - p.x;
+    const dy = mouse.y - p.y;
+    const dist = Math.sqrt(dx * dx + dy * dy) + 1;
+    const maxDist = 400;
+    if (dist > maxDist) return;
+
+    const strength = config.forceStrength / (dist * 0.5);
+    const nx = dx / dist;
+    const ny = dy / dist;
+
+    switch (config.mode) {
+        case 'attract':
+            p.vx += nx * strength;
+            p.vy += ny * strength;
+            break;
+        case 'repel':
+            p.vx -= nx * strength * 1.5;
+            p.vy -= ny * strength * 1.5;
+            break;
+        case 'vortex':
+            p.vx += (-ny * strength * 0.8 + nx * strength * 0.2);
+            p.vy += (nx * strength * 0.8 + ny * strength * 0.2);
+            break;
+        case 'gravity': {
+            // Realistic gravity: F = G*m/r^2
+            const g = config.forceStrength * 500 / (dist * dist + 100);
+            p.vx += nx * g;
+            p.vy += ny * g;
+            break;
+        }
+        case 'orbit': {
+            // Tangential + slight radial pull
+            const orbitStr = config.forceStrength / (dist * 0.3 + 10);
+            const idealDist = 150;
+            const radial = (dist - idealDist) * 0.01;
+            p.vx += (-ny * orbitStr + nx * radial);
+            p.vy += (nx * orbitStr + ny * radial);
+            break;
+        }
+        case 'fireworks': {
+            // Particles get pushed out then fall
+            if (dist < 80) {
+                const burst = config.forceStrength * 0.3;
+                p.vx -= nx * burst;
+                p.vy -= ny * burst;
+            }
+            p.vy += 0.15; // gravity
+            break;
+        }
+    }
+}
+
+function update() {
+    for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        applyForce(p);
+
+        // Add slight ambient motion
+        if (!mouse.active) {
+            p.vx += (Math.random() - 0.5) * 0.1;
+            p.vy += (Math.random() - 0.5) * 0.1;
+        }
+
+        p.vx *= config.damping;
+        p.vy *= config.damping;
+        p.x += p.vx;
+        p.y += p.vy;
+
+        // Wrap around edges
+        if (p.x < -10) p.x = W + 10;
+        if (p.x > W + 10) p.x = -10;
+        if (p.y < -10) p.y = H + 10;
+        if (p.y > H + 10) p.y = -10;
+    }
+}
+
+function draw() {
+    // Trail effect
+    const alpha = 1 - config.trailAlpha / 100;
+    ctx.fillStyle = `rgba(${hexToRGB(themes[currentTheme].bg)},${alpha})`;
+    ctx.fillRect(0, 0, W, H);
+
+    // Draw particles
+    const size = config.size;
+    for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+        const glow = Math.min(speed / 5, 1);
+
+        ctx.globalAlpha = 0.4 + glow * 0.6;
+        ctx.fillStyle = p.color;
+
+        // Fast particles glow bigger
+        const r = size + glow * size * 0.8;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Extra glow for fast particles
+        if (speed > 3) {
+            ctx.globalAlpha = glow * 0.15;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, r * 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+    ctx.globalAlpha = 1;
+}
+
+function hexToRGB(hex) {
+    const r = parseInt(hex.slice(1,3), 16);
+    const g = parseInt(hex.slice(3,5), 16);
+    const b = parseInt(hex.slice(5,7), 16);
+    return `${r},${g},${b}`;
+}
+
+// Stats
+let fps = 0, frames = 0, lastFPS = performance.now();
+function updateStats() {
+    frames++;
+    const now = performance.now();
+    if (now - lastFPS >= 1000) {
+        fps = frames;
+        frames = 0;
+        lastFPS = now;
+    }
+    document.getElementById('stats').textContent =
+        `${particles.length} particles · ${fps} fps · ${config.mode}`;
+}
+
+// Main loop
+function loop() {
+    update();
+    draw();
+    updateStats();
+    requestAnimationFrame(loop);
+}
+loop();
+
+// Mouse events
+canvas.addEventListener('mousemove', e => {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+});
+canvas.addEventListener('mousedown', e => {
+    mouse.down = true;
+    mouse.active = true;
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+});
+canvas.addEventListener('mouseup', () => {
+    mouse.down = false;
+    mouse.active = false;
+});
+canvas.addEventListener('mouseleave', () => {
+    mouse.active = false;
+});
+// Touch
+canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    mouse.active = true;
+    mouse.x = e.touches[0].clientX;
+    mouse.y = e.touches[0].clientY;
+}, { passive: false });
+canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    mouse.x = e.touches[0].clientX;
+    mouse.y = e.touches[0].clientY;
+}, { passive: false });
+canvas.addEventListener('touchend', () => { mouse.active = false; });
+
+// Scroll to adjust force radius
+canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    config.forceStrength = Math.max(5, Math.min(200, config.forceStrength - e.deltaY * 0.1));
+    document.getElementById('forceStrength').value = config.forceStrength;
+    document.getElementById('forceVal').textContent = Math.round(config.forceStrength);
+}, { passive: false });
+
+// Controls
+document.querySelectorAll('#forceMode .mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('#forceMode .mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        config.mode = btn.dataset.mode;
+    });
+});
+
+document.getElementById('particleCount').addEventListener('input', e => {
+    config.count = parseInt(e.target.value);
+    document.getElementById('countVal').textContent = config.count;
+    while (particles.length < config.count) particles.push(new Particle());
+    while (particles.length > config.count) particles.pop();
+});
+
+document.getElementById('forceStrength').addEventListener('input', e => {
+    config.forceStrength = parseInt(e.target.value);
+    document.getElementById('forceVal').textContent = config.forceStrength;
+});
+
+document.getElementById('trailLength').addEventListener('input', e => {
+    config.trailAlpha = parseInt(e.target.value);
+    document.getElementById('trailVal').textContent = config.trailAlpha;
+});
+
+document.getElementById('particleSize').addEventListener('input', e => {
+    config.size = parseFloat(e.target.value);
+    document.getElementById('sizeVal').textContent = config.size;
+});
+
+document.getElementById('damping').addEventListener('input', e => {
+    config.damping = parseInt(e.target.value) / 100;
+    document.getElementById('dampVal').textContent = parseInt(e.target.value);
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+    initParticles(config.count);
+});
+
+document.getElementById('explodeBtn').addEventListener('click', () => {
+    particles.forEach(p => {
+        const angle = Math.random() * Math.PI * 2;
+        const force = 10 + Math.random() * 20;
+        p.vx = Math.cos(angle) * force;
+        p.vy = Math.sin(angle) * force;
+    });
+});
+
+// Toggle panel
+const toggleBtn = document.getElementById('toggleBtn');
+const controls = document.getElementById('controls');
+let panelOpen = true;
+toggleBtn.addEventListener('click', () => {
+    panelOpen = !panelOpen;
+    controls.classList.toggle('collapsed', !panelOpen);
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+    if (e.key === 'h') {
+        panelOpen = !panelOpen;
+        controls.classList.toggle('collapsed', !panelOpen);
+    }
+    if (e.key === ' ') {
+        e.preventDefault();
+        // Explode!
+        particles.forEach(p => {
+            const angle = Math.random() * Math.PI * 2;
+            const force = 10 + Math.random() * 20;
+            p.vx = Math.cos(angle) * force;
+            p.vy = Math.sin(angle) * force;
+        });
+    }
+    if (e.key === 'r') initParticles(config.count);
+});
+</script>
+</body>
+</html>
