@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShopAudit — M×M Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0a0f;
+            color: #e0e0e0;
+            font-family: 'Space Grotesk', sans-serif;
+            min-height: 100vh;
+        }
+        .grain {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 80px 24px 60px;
+            position: relative;
+            z-index: 1;
+        }
+        .back {
+            position: fixed; top: 16px; left: 16px;
+            color: #888; text-decoration: none; font-size: 13px; z-index: 10;
+        }
+        .back:hover { color: #6cf; }
+        h1 { font-size: 2rem; font-weight: 700; margin-bottom: 8px; }
+        .subtitle { color: #666; font-size: 14px; margin-bottom: 32px; }
+
+        /* Input Section */
+        .input-section {
+            background: #111118;
+            border: 1px solid #1a1a2e;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .input-section label {
+            display: block;
+            font-size: 13px;
+            color: #888;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .tab {
+            padding: 8px 16px;
+            background: #0a0a12;
+            border: 1px solid #1a1a2e;
+            border-radius: 8px;
+            color: #888;
+            cursor: pointer;
+            font-size: 13px;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+        .tab.active {
+            background: #1a1a2e;
+            color: #6cf;
+            border-color: #6cf3;
+        }
+        .tab:hover { border-color: #333; }
+        .url-row {
+            display: flex;
+            gap: 8px;
+        }
+        .url-row input {
+            flex: 1;
+            padding: 12px 16px;
+            background: #0a0a12;
+            border: 1px solid #1a1a2e;
+            border-radius: 8px;
+            color: #e0e0e0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            outline: none;
+        }
+        .url-row input:focus { border-color: #6cf5; }
+        .url-row input::placeholder { color: #444; }
+        textarea.html-input {
+            width: 100%;
+            min-height: 200px;
+            padding: 12px 16px;
+            background: #0a0a12;
+            border: 1px solid #1a1a2e;
+            border-radius: 8px;
+            color: #e0e0e0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            outline: none;
+            resize: vertical;
+        }
+        textarea.html-input:focus { border-color: #6cf5; }
+        textarea.html-input::placeholder { color: #444; }
+        .btn {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #6cf, #a78bfa);
+            border: none;
+            border-radius: 8px;
+            color: #0a0a0f;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            white-space: nowrap;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .hint {
+            font-size: 12px;
+            color: #555;
+            margin-top: 8px;
+        }
+
+        /* Score */
+        .score-hero {
+            text-align: center;
+            padding: 40px 24px;
+            background: #111118;
+            border: 1px solid #1a1a2e;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            display: none;
+        }
+        .score-ring {
+            width: 160px;
+            height: 160px;
+            margin: 0 auto 16px;
+            position: relative;
+        }
+        .score-ring svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+        .score-ring .bg { stroke: #1a1a2e; }
+        .score-ring .fg {
+            stroke-linecap: round;
+            transition: stroke-dashoffset 1s ease, stroke 0.5s;
+        }
+        .score-number {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            font-weight: 700;
+            transform: rotate(0deg);
+        }
+        .score-label {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+        .score-grade {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        /* Results */
+        .results { display: none; }
+        .category {
+            background: #111118;
+            border: 1px solid #1a1a2e;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        .cat-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .cat-header:hover { background: #1a1a2e33; }
+        .cat-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            font-size: 15px;
+        }
+        .cat-icon { font-size: 18px; }
+        .cat-score {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .cat-score-bar {
+            width: 80px;
+            height: 6px;
+            background: #1a1a2e;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .cat-score-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.8s ease;
+        }
+        .cat-score-num {
+            font-size: 13px;
+            font-family: 'JetBrains Mono', monospace;
+            min-width: 32px;
+            text-align: right;
+        }
+        .cat-chevron {
+            color: #555;
+            transition: transform 0.2s;
+            font-size: 12px;
+        }
+        .category.open .cat-chevron { transform: rotate(180deg); }
+        .cat-body {
+            display: none;
+            padding: 0 20px 16px;
+        }
+        .category.open .cat-body { display: block; }
+
+        .check {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid #1a1a2e33;
+            font-size: 13px;
+        }
+        .check:last-child { border-bottom: none; }
+        .check-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+        .check-pass .check-icon { color: #4ade80; }
+        .check-warn .check-icon { color: #fbbf24; }
+        .check-fail .check-icon { color: #f87171; }
+        .check-info .check-icon { color: #6cf; }
+        .check-text { flex: 1; }
+        .check-detail {
+            font-size: 12px;
+            color: #666;
+            margin-top: 2px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Loading */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 60px;
+        }
+        .spinner {
+            width: 40px; height: 40px;
+            border: 3px solid #1a1a2e;
+            border-top-color: #6cf;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { color: #888; font-size: 14px; }
+
+        /* Error */
+        .error-box {
+            display: none;
+            background: #1a0a0a;
+            border: 1px solid #f8717133;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            color: #f87171;
+            font-size: 14px;
+        }
+
+        /* Summary */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+            display: none;
+        }
+        .summary-card {
+            background: #111118;
+            border: 1px solid #1a1a2e;
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+        }
+        .summary-value {
+            font-size: 28px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .summary-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        @media (max-width: 600px) {
+            h1 { font-size: 1.5rem; }
+            .url-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="grain"></div>
+    <a href="../index.html#lab" class="back">← back</a>
+
+    <div class="container">
+        <h1>ShopAudit</h1>
+        <p class="subtitle">Instant SEO & content audit for any webpage. Paste HTML source to analyze.</p>
+
+        <div class="input-section">
+            <div class="tabs">
+                <button class="tab active" data-mode="html" onclick="switchTab('html')">Paste HTML</button>
+                <button class="tab" data-mode="url" onclick="switchTab('url')">Fetch URL</button>
+            </div>
+            <div id="html-mode">
+                <textarea class="html-input" id="htmlInput" placeholder="Paste the full HTML source of any webpage here...&#10;&#10;Tip: Right-click → View Page Source → Select All → Copy"></textarea>
+                <div style="margin-top:12px">
+                    <button class="btn" onclick="runAudit()">Audit This Page</button>
+                </div>
+            </div>
+            <div id="url-mode" style="display:none">
+                <div class="url-row">
+                    <input type="url" id="urlInput" placeholder="https://example.myshopify.com">
+                    <button class="btn" onclick="fetchAndAudit()">Fetch & Audit</button>
+                </div>
+                <p class="hint">Uses a CORS proxy. Works for most public pages. For best results, paste HTML directly.</p>
+            </div>
+        </div>
+
+        <div class="error-box" id="error"></div>
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div class="loading-text">Analyzing page...</div>
+        </div>
+
+        <div class="score-hero" id="scoreHero">
+            <div class="score-ring">
+                <svg viewBox="0 0 160 160">
+                    <circle class="bg" cx="80" cy="80" r="70" fill="none" stroke-width="8"/>
+                    <circle class="fg" id="scoreArc" cx="80" cy="80" r="70" fill="none" stroke-width="8"
+                        stroke-dasharray="439.8" stroke-dashoffset="439.8"/>
+                </svg>
+                <div class="score-number" id="scoreNum">0</div>
+            </div>
+            <div class="score-label">Overall SEO Score</div>
+            <div class="score-grade" id="scoreGrade"></div>
+        </div>
+
+        <div class="summary-grid" id="summaryGrid"></div>
+        <div class="results" id="results"></div>
+    </div>
+
+    <script>
+    function switchTab(mode) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+        document.getElementById('html-mode').style.display = mode === 'html' ? 'block' : 'none';
+        document.getElementById('url-mode').style.display = mode === 'url' ? 'block' : 'none';
+    }
+
+    async function fetchAndAudit() {
+        const url = document.getElementById('urlInput').value.trim();
+        if (!url) return;
+        showLoading(true);
+        hideError();
+        try {
+            const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+            const resp = await fetch(proxy);
+            if (!resp.ok) throw new Error(`Failed to fetch (${resp.status})`);
+            const html = await resp.text();
+            document.getElementById('htmlInput').value = html;
+            analyze(html, url);
+        } catch (e) {
+            showError(`Could not fetch URL: ${e.message}. Try pasting HTML directly instead.`);
+            showLoading(false);
+        }
+    }
+
+    function runAudit() {
+        const html = document.getElementById('htmlInput').value.trim();
+        if (!html) return;
+        hideError();
+        showLoading(true);
+        setTimeout(() => analyze(html), 50);
+    }
+
+    function showLoading(v) { document.getElementById('loading').style.display = v ? 'block' : 'none'; }
+    function showError(msg) { const e = document.getElementById('error'); e.textContent = msg; e.style.display = 'block'; }
+    function hideError() { document.getElementById('error').style.display = 'none'; }
+
+    function analyze(html, sourceUrl) {
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const checks = [];
+        let totalScore = 0, maxScore = 0;
+
+        // === META / SEO ===
+        const metaChecks = [];
+
+        // Title
+        const title = doc.querySelector('title')?.textContent?.trim();
+        if (title) {
+            const len = title.length;
+            if (len >= 30 && len <= 65) {
+                metaChecks.push(pass(`Title tag found (${len} chars)`, `"${title.slice(0,80)}"`));
+                totalScore += 10;
+            } else {
+                metaChecks.push(warn(`Title length: ${len} chars (ideal: 30-65)`, `"${title.slice(0,80)}"`));
+                totalScore += 5;
+            }
+        } else {
+            metaChecks.push(fail('Missing <title> tag', 'Critical for SEO — every page needs a unique title'));
+        }
+        maxScore += 10;
+
+        // Meta description
+        const desc = getMeta(doc, 'description');
+        if (desc) {
+            const len = desc.length;
+            if (len >= 120 && len <= 160) {
+                metaChecks.push(pass(`Meta description (${len} chars)`, `"${desc.slice(0,120)}..."`));
+                totalScore += 10;
+            } else {
+                metaChecks.push(warn(`Meta description length: ${len} chars (ideal: 120-160)`, `"${desc.slice(0,120)}..."`));
+                totalScore += 5;
+            }
+        } else {
+            metaChecks.push(fail('Missing meta description', 'Appears in search results — highly recommended'));
+        }
+        maxScore += 10;
+
+        // Canonical
+        const canonical = doc.querySelector('link[rel="canonical"]')?.href;
+        if (canonical) {
+            metaChecks.push(pass('Canonical URL set', canonical));
+            totalScore += 5;
+        } else {
+            metaChecks.push(warn('No canonical URL', 'Helps prevent duplicate content issues'));
+        }
+        maxScore += 5;
+
+        // Viewport
+        const viewport = getMeta(doc, 'viewport');
+        if (viewport) {
+            metaChecks.push(pass('Viewport meta tag present', viewport));
+            totalScore += 5;
+        } else {
+            metaChecks.push(fail('Missing viewport meta', 'Required for mobile-friendly pages'));
+        }
+        maxScore += 5;
+
+        // Charset
+        const charset = doc.querySelector('meta[charset]') || doc.querySelector('meta[http-equiv="Content-Type"]');
+        if (charset) {
+            metaChecks.push(pass('Character encoding declared'));
+            totalScore += 3;
+        } else {
+            metaChecks.push(warn('No explicit charset declaration'));
+        }
+        maxScore += 3;
+
+        // Robots
+        const robots = getMeta(doc, 'robots');
+        if (robots) {
+            if (robots.includes('noindex')) {
+                metaChecks.push(fail('Page is set to noindex!', `robots: "${robots}"`));
+            } else {
+                metaChecks.push(pass('Robots meta allows indexing', `"${robots}"`));
+                totalScore += 3;
+            }
+        } else {
+            metaChecks.push(info('No robots meta (defaults to index,follow)'));
+            totalScore += 3;
+        }
+        maxScore += 3;
+
+        // Language
+        const lang = doc.documentElement.lang;
+        if (lang) {
+            metaChecks.push(pass(`Language attribute set: ${lang}`));
+            totalScore += 3;
+        } else {
+            metaChecks.push(warn('Missing lang attribute on <html>', 'Helps search engines and screen readers'));
+        }
+        maxScore += 3;
+
+        checks.push({ icon: '🔍', title: 'Meta & SEO', checks: metaChecks });
+
+        // === CONTENT ===
+        const contentChecks = [];
+
+        // Headings
+        const h1s = doc.querySelectorAll('h1');
+        if (h1s.length === 1) {
+            contentChecks.push(pass('Single H1 tag', `"${h1s[0].textContent.trim().slice(0,80)}"`));
+            totalScore += 8;
+        } else if (h1s.length === 0) {
+            contentChecks.push(fail('No H1 tag found', 'Every page should have exactly one H1'));
+        } else {
+            contentChecks.push(warn(`Multiple H1 tags (${h1s.length})`, 'Best practice: one H1 per page'));
+            totalScore += 3;
+        }
+        maxScore += 8;
+
+        // Heading hierarchy
+        const headings = doc.querySelectorAll('h1,h2,h3,h4,h5,h6');
+        let hierarchyOk = true;
+        let prevLevel = 0;
+        headings.forEach(h => {
+            const level = parseInt(h.tagName[1]);
+            if (level > prevLevel + 1 && prevLevel > 0) hierarchyOk = false;
+            prevLevel = level;
+        });
+        if (headings.length > 0) {
+            if (hierarchyOk) {
+                contentChecks.push(pass(`Heading hierarchy intact (${headings.length} headings)`));
+                totalScore += 5;
+            } else {
+                contentChecks.push(warn(`Heading hierarchy skips levels (${headings.length} headings)`, 'Don\'t skip from H1 to H3'));
+                totalScore += 2;
+            }
+        } else {
+            contentChecks.push(fail('No headings found'));
+        }
+        maxScore += 5;
+
+        // Word count
+        const bodyText = doc.body?.textContent || '';
+        const words = bodyText.split(/\s+/).filter(w => w.length > 0).length;
+        if (words > 300) {
+            contentChecks.push(pass(`Good content length: ${words.toLocaleString()} words`));
+            totalScore += 8;
+        } else if (words > 100) {
+            contentChecks.push(warn(`Thin content: ${words} words`, 'Aim for 300+ words for SEO'));
+            totalScore += 4;
+        } else {
+            contentChecks.push(fail(`Very thin content: ${words} words`, 'Search engines prefer substantive content'));
+        }
+        maxScore += 8;
+
+        checks.push({ icon: '📝', title: 'Content Quality', checks: contentChecks });
+
+        // === IMAGES ===
+        const imageChecks = [];
+        const imgs = doc.querySelectorAll('img');
+        const imgsWithAlt = Array.from(imgs).filter(i => i.alt && i.alt.trim());
+        const imgsWithoutAlt = imgs.length - imgsWithAlt.length;
+
+        if (imgs.length === 0) {
+            imageChecks.push(info('No images found'));
+        } else {
+            if (imgsWithoutAlt === 0) {
+                imageChecks.push(pass(`All ${imgs.length} images have alt text`));
+                totalScore += 8;
+            } else {
+                const pct = Math.round((imgsWithAlt.length / imgs.length) * 100);
+                imageChecks.push(warn(`${imgsWithoutAlt} of ${imgs.length} images missing alt text (${pct}% coverage)`));
+                totalScore += Math.round(8 * (imgsWithAlt.length / imgs.length));
+            }
+        }
+        maxScore += 8;
+
+        // Lazy loading
+        const lazyImgs = Array.from(imgs).filter(i => i.loading === 'lazy').length;
+        if (imgs.length > 3) {
+            if (lazyImgs > 0) {
+                imageChecks.push(pass(`${lazyImgs} images use lazy loading`));
+                totalScore += 4;
+            } else {
+                imageChecks.push(warn('No images use lazy loading', 'Add loading="lazy" to below-fold images'));
+            }
+        } else {
+            totalScore += 4;
+        }
+        maxScore += 4;
+
+        // Image dimensions
+        const imgsWithDimensions = Array.from(imgs).filter(i => (i.width || i.getAttribute('width')) && (i.height || i.getAttribute('height'))).length;
+        if (imgs.length > 0) {
+            if (imgsWithDimensions === imgs.length) {
+                imageChecks.push(pass('All images have explicit dimensions'));
+                totalScore += 3;
+            } else {
+                imageChecks.push(warn(`${imgs.length - imgsWithDimensions} images missing width/height`, 'Prevents layout shift (CLS)'));
+                totalScore += 1;
+            }
+        }
+        maxScore += 3;
+
+        checks.push({ icon: '🖼️', title: 'Images', checks: imageChecks });
+
+        // === LINKS ===
+        const linkChecks = [];
+        const links = doc.querySelectorAll('a[href]');
+        const internal = Array.from(links).filter(l => !l.href.startsWith('http') || l.href.includes(location.hostname));
+        const external = links.length - internal.length;
+
+        linkChecks.push(info(`${links.length} total links (${internal.length} internal, ${external} external)`));
+
+        // Links with no text
+        const emptyLinks = Array.from(links).filter(l => !l.textContent.trim() && !l.querySelector('img') && !l.getAttribute('aria-label'));
+        if (emptyLinks.length > 0) {
+            linkChecks.push(warn(`${emptyLinks.length} links with no accessible text`, 'Add aria-label or visible text'));
+            totalScore += 2;
+        } else {
+            linkChecks.push(pass('All links have accessible text'));
+            totalScore += 5;
+        }
+        maxScore += 5;
+
+        // Nofollow analysis
+        const nofollowLinks = Array.from(links).filter(l => l.rel && l.rel.includes('nofollow'));
+        if (nofollowLinks.length > 0) {
+            linkChecks.push(info(`${nofollowLinks.length} nofollow links`));
+        }
+
+        checks.push({ icon: '🔗', title: 'Links', checks: linkChecks });
+
+        // === SOCIAL / OG ===
+        const socialChecks = [];
+
+        const ogTitle = doc.querySelector('meta[property="og:title"]')?.content;
+        const ogDesc = doc.querySelector('meta[property="og:description"]')?.content;
+        const ogImage = doc.querySelector('meta[property="og:image"]')?.content;
+        const ogUrl = doc.querySelector('meta[property="og:url"]')?.content;
+
+        if (ogTitle) { socialChecks.push(pass('OG title', `"${ogTitle.slice(0,80)}"`)); totalScore += 3; }
+        else { socialChecks.push(fail('Missing og:title')); }
+        maxScore += 3;
+
+        if (ogDesc) { socialChecks.push(pass('OG description set')); totalScore += 3; }
+        else { socialChecks.push(warn('Missing og:description')); }
+        maxScore += 3;
+
+        if (ogImage) { socialChecks.push(pass('OG image set', ogImage.slice(0,100))); totalScore += 3; }
+        else { socialChecks.push(warn('Missing og:image', 'Required for social sharing previews')); }
+        maxScore += 3;
+
+        // Twitter cards
+        const twCard = getMeta(doc, 'twitter:card');
+        if (twCard) {
+            socialChecks.push(pass(`Twitter card: ${twCard}`));
+            totalScore += 2;
+        } else {
+            socialChecks.push(warn('No Twitter card meta'));
+        }
+        maxScore += 2;
+
+        checks.push({ icon: '📱', title: 'Social / Open Graph', checks: socialChecks });
+
+        // === STRUCTURED DATA ===
+        const structChecks = [];
+        const jsonLd = doc.querySelectorAll('script[type="application/ld+json"]');
+        if (jsonLd.length > 0) {
+            structChecks.push(pass(`${jsonLd.length} JSON-LD structured data blocks found`));
+            totalScore += 8;
+            jsonLd.forEach((s, i) => {
+                try {
+                    const data = JSON.parse(s.textContent);
+                    const type = data['@type'] || (Array.isArray(data['@graph']) ? 'Graph' : 'Unknown');
+                    structChecks.push(info(`Block ${i+1}: ${type}`));
+                } catch { structChecks.push(warn(`Block ${i+1}: Invalid JSON`)); }
+            });
+        } else {
+            structChecks.push(fail('No structured data (JSON-LD)', 'Helps search engines understand your content'));
+        }
+        maxScore += 8;
+
+        // Microdata
+        const microdata = doc.querySelectorAll('[itemtype]');
+        if (microdata.length > 0) {
+            structChecks.push(info(`${microdata.length} microdata items found`));
+        }
+
+        checks.push({ icon: '🏗️', title: 'Structured Data', checks: structChecks });
+
+        // === PERFORMANCE HINTS ===
+        const perfChecks = [];
+
+        // Inline styles
+        const inlineStyles = doc.querySelectorAll('[style]').length;
+        if (inlineStyles > 20) {
+            perfChecks.push(warn(`${inlineStyles} inline styles`, 'Consider using CSS classes'));
+        } else {
+            perfChecks.push(pass(`Minimal inline styles (${inlineStyles})`));
+            totalScore += 3;
+        }
+        maxScore += 3;
+
+        // Script count
+        const scripts = doc.querySelectorAll('script[src]');
+        if (scripts.length > 15) {
+            perfChecks.push(warn(`${scripts.length} external scripts`, 'May slow page load'));
+        } else {
+            perfChecks.push(pass(`${scripts.length} external scripts`));
+            totalScore += 3;
+        }
+        maxScore += 3;
+
+        // Async/defer scripts
+        const asyncScripts = Array.from(scripts).filter(s => s.async || s.defer).length;
+        if (scripts.length > 0) {
+            if (asyncScripts === scripts.length) {
+                perfChecks.push(pass('All scripts are async/defer'));
+                totalScore += 3;
+            } else if (asyncScripts > 0) {
+                perfChecks.push(warn(`${scripts.length - asyncScripts} scripts without async/defer`));
+                totalScore += 1;
+            } else {
+                perfChecks.push(warn('No scripts use async/defer', 'Blocks page rendering'));
+            }
+        }
+        maxScore += 3;
+
+        // CSS files
+        const cssFiles = doc.querySelectorAll('link[rel="stylesheet"]').length;
+        perfChecks.push(info(`${cssFiles} external stylesheets`));
+
+        // Preconnect/preload
+        const preconnect = doc.querySelectorAll('link[rel="preconnect"]').length;
+        const preload = doc.querySelectorAll('link[rel="preload"]').length;
+        if (preconnect > 0 || preload > 0) {
+            perfChecks.push(pass(`Resource hints: ${preconnect} preconnect, ${preload} preload`));
+            totalScore += 3;
+        } else {
+            perfChecks.push(info('No resource hints (preconnect/preload)'));
+        }
+        maxScore += 3;
+
+        // HTML size
+        const htmlSize = new Blob([html]).size;
+        const htmlKB = Math.round(htmlSize / 1024);
+        if (htmlKB < 100) {
+            perfChecks.push(pass(`HTML size: ${htmlKB}KB`));
+            totalScore += 3;
+        } else if (htmlKB < 500) {
+            perfChecks.push(warn(`HTML size: ${htmlKB}KB`, 'Consider reducing'));
+            totalScore += 1;
+        } else {
+            perfChecks.push(fail(`Large HTML: ${htmlKB}KB`, 'Very heavy — may hurt mobile performance'));
+        }
+        maxScore += 3;
+
+        checks.push({ icon: '⚡', title: 'Performance Hints', checks: perfChecks });
+
+        // === ACCESSIBILITY ===
+        const a11yChecks = [];
+
+        // Form labels
+        const inputs = doc.querySelectorAll('input:not([type="hidden"]),select,textarea');
+        const unlabeled = Array.from(inputs).filter(i => {
+            const id = i.id;
+            if (id && doc.querySelector(`label[for="${id}"]`)) return false;
+            if (i.getAttribute('aria-label') || i.getAttribute('aria-labelledby')) return false;
+            if (i.closest('label')) return false;
+            return true;
+        });
+        if (inputs.length > 0) {
+            if (unlabeled.length === 0) {
+                a11yChecks.push(pass(`All ${inputs.length} form inputs have labels`));
+                totalScore += 5;
+            } else {
+                a11yChecks.push(warn(`${unlabeled.length} of ${inputs.length} form inputs missing labels`));
+                totalScore += 2;
+            }
+        }
+        maxScore += 5;
+
+        // ARIA landmarks
+        const landmarks = doc.querySelectorAll('[role="main"],[role="navigation"],[role="banner"],main,nav,header,footer');
+        if (landmarks.length > 0) {
+            a11yChecks.push(pass(`${landmarks.length} landmark elements`));
+            totalScore += 3;
+        } else {
+            a11yChecks.push(warn('No landmark elements', 'Use <main>, <nav>, <header>, <footer>'));
+        }
+        maxScore += 3;
+
+        // Skip link
+        const skipLink = doc.querySelector('a[href="#content"],a[href="#main"],a[href="#main-content"],.skip-link,[class*="skip"]');
+        if (skipLink) {
+            a11yChecks.push(pass('Skip navigation link found'));
+            totalScore += 2;
+        } else {
+            a11yChecks.push(info('No skip navigation link'));
+        }
+        maxScore += 2;
+
+        checks.push({ icon: '♿', title: 'Accessibility', checks: a11yChecks });
+
+        // === SHOPIFY SPECIFIC ===
+        const isShopify = html.includes('Shopify') || html.includes('shopify') || html.includes('cdn.shopify.com');
+        if (isShopify) {
+            const shopifyChecks = [];
+
+            if (html.includes('cdn.shopify.com')) {
+                shopifyChecks.push(info('Shopify CDN detected'));
+            }
+
+            // Product schema
+            const hasProduct = html.includes('"@type":"Product"') || html.includes('"@type": "Product"');
+            if (hasProduct) {
+                shopifyChecks.push(pass('Product structured data present'));
+                totalScore += 5;
+            } else {
+                shopifyChecks.push(warn('No Product schema detected', 'Add JSON-LD Product markup for rich results'));
+            }
+            maxScore += 5;
+
+            // Collection/breadcrumb
+            const hasBreadcrumb = html.includes('BreadcrumbList');
+            if (hasBreadcrumb) {
+                shopifyChecks.push(pass('Breadcrumb structured data present'));
+                totalScore += 3;
+            } else {
+                shopifyChecks.push(info('No breadcrumb schema'));
+            }
+            maxScore += 3;
+
+            // Common Shopify SEO issues
+            const hasDefaultTitle = title && (title.includes('– Powered by Shopify') || title === 'Home');
+            if (hasDefaultTitle) {
+                shopifyChecks.push(fail('Default Shopify title detected', 'Customize your title tag'));
+            }
+
+            checks.push({ icon: '🛍️', title: 'Shopify-Specific', checks: shopifyChecks });
+        }
+
+        // Calculate final score
+        const finalScore = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
+
+        // Render
+        renderResults(finalScore, checks, { words, imgs: imgs.length, links: links.length, scripts: scripts.length, htmlKB, isShopify });
+        showLoading(false);
+    }
+
+    function getMeta(doc, name) {
+        return (doc.querySelector(`meta[name="${name}"]`) || doc.querySelector(`meta[property="${name}"]`))?.content?.trim();
+    }
+
+    function pass(text, detail) { return { type: 'pass', text, detail }; }
+    function warn(text, detail) { return { type: 'warn', text, detail }; }
+    function fail(text, detail) { return { type: 'fail', text, detail }; }
+    function info(text, detail) { return { type: 'info', text, detail }; }
+
+    function renderResults(score, categories, stats) {
+        // Score
+        const hero = document.getElementById('scoreHero');
+        hero.style.display = 'block';
+        const arc = document.getElementById('scoreArc');
+        const num = document.getElementById('scoreNum');
+        const grade = document.getElementById('scoreGrade');
+        const circumference = 439.8;
+        const offset = circumference - (score / 100) * circumference;
+        const color = score >= 80 ? '#4ade80' : score >= 50 ? '#fbbf24' : '#f87171';
+
+        setTimeout(() => {
+            arc.style.strokeDashoffset = offset;
+            arc.style.stroke = color;
+            num.style.color = color;
+        }, 100);
+
+        // Animate number
+        let current = 0;
+        const step = Math.max(1, Math.floor(score / 30));
+        const timer = setInterval(() => {
+            current = Math.min(current + step, score);
+            num.textContent = current;
+            if (current >= score) clearInterval(timer);
+        }, 30);
+
+        grade.textContent = score >= 90 ? 'Excellent' : score >= 75 ? 'Good' : score >= 50 ? 'Needs Work' : 'Poor';
+        grade.style.color = color;
+
+        // Summary
+        const grid = document.getElementById('summaryGrid');
+        grid.style.display = 'grid';
+        grid.innerHTML = `
+            <div class="summary-card"><div class="summary-value">${stats.words.toLocaleString()}</div><div class="summary-label">Words</div></div>
+            <div class="summary-card"><div class="summary-value">${stats.imgs}</div><div class="summary-label">Images</div></div>
+            <div class="summary-card"><div class="summary-value">${stats.links}</div><div class="summary-label">Links</div></div>
+            <div class="summary-card"><div class="summary-value">${stats.htmlKB}KB</div><div class="summary-label">HTML Size</div></div>
+            ${stats.isShopify ? '<div class="summary-card"><div class="summary-value" style="color:#95bf47">🛍️</div><div class="summary-label">Shopify Detected</div></div>' : ''}
+        `;
+
+        // Categories
+        const results = document.getElementById('results');
+        results.style.display = 'block';
+        results.innerHTML = categories.map((cat, i) => {
+            const catChecks = cat.checks;
+            const passes = catChecks.filter(c => c.type === 'pass').length;
+            const total = catChecks.filter(c => c.type !== 'info').length;
+            const catScore = total > 0 ? Math.round((passes / total) * 100) : 100;
+            const barColor = catScore >= 80 ? '#4ade80' : catScore >= 50 ? '#fbbf24' : '#f87171';
+
+            return `<div class="category ${i < 3 ? 'open' : ''}" onclick="this.classList.toggle('open')">
+                <div class="cat-header">
+                    <div class="cat-title">
+                        <span class="cat-icon">${cat.icon}</span>
+                        ${cat.title}
+                    </div>
+                    <div class="cat-score">
+                        <div class="cat-score-bar"><div class="cat-score-fill" style="width:${catScore}%;background:${barColor}"></div></div>
+                        <span class="cat-score-num" style="color:${barColor}">${catScore}%</span>
+                        <span class="cat-chevron">▼</span>
+                    </div>
+                </div>
+                <div class="cat-body">
+                    ${catChecks.map(c => `<div class="check check-${c.type}">
+                        <span class="check-icon">${c.type === 'pass' ? '✓' : c.type === 'warn' ? '⚠' : c.type === 'fail' ? '✗' : 'ℹ'}</span>
+                        <div class="check-text">
+                            ${c.text}
+                            ${c.detail ? `<div class="check-detail">${c.detail}</div>` : ''}
+                        </div>
+                    </div>`).join('')}
+                </div>
+            </div>`;
+        }).join('');
+
+        // Scroll to results
+        hero.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    </script>
+</body>
+</html>
