@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Studio — M×M Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0a0f;
+            color: #e0e0e0;
+            font-family: 'Space Grotesk', sans-serif;
+            min-height: 100vh;
+        }
+        .grain {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 80px 24px 60px;
+            position: relative;
+            z-index: 1;
+        }
+        .back {
+            position: fixed; top: 16px; left: 16px;
+            color: #888; text-decoration: none; font-size: 13px; z-index: 10;
+        }
+        .back:hover { color: #6cf; }
+        h1 { font-size: 2rem; font-weight: 700; margin-bottom: 8px; }
+        .subtitle { color: #666; font-size: 14px; margin-bottom: 32px; }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        @media (max-width: 768px) {
+            .layout { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+            background: #111118;
+            border: 1px solid #1a1a2e;
+            border-radius: 12px;
+            padding: 24px;
+        }
+        .panel h2 {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .field { margin-bottom: 16px; }
+        .field label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        .field input[type="text"],
+        .field textarea,
+        .field select {
+            width: 100%;
+            background: #0a0a12;
+            border: 1px solid #222;
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: #e0e0e0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .field input:focus, .field textarea:focus, .field select:focus {
+            border-color: #6cf;
+        }
+        .field textarea { resize: vertical; min-height: 60px; }
+        .field input[type="color"] {
+            width: 40px; height: 32px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background: none;
+            cursor: pointer;
+            padding: 2px;
+        }
+
+        .color-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .color-row label { margin-bottom: 0; flex-shrink: 0; }
+
+        .radio-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 12px;
+            background: #0a0a12;
+            border: 1px solid #222;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #aaa;
+            transition: all 0.2s;
+        }
+        .radio-group input { display: none; }
+        .radio-group input:checked + span {
+            color: #6cf;
+        }
+        .radio-group label:has(input:checked) {
+            border-color: #6cf;
+            background: rgba(102, 204, 255, 0.05);
+        }
+
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .slider-row input[type="range"] {
+            flex: 1;
+            accent-color: #6cf;
+        }
+        .slider-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: #6cf;
+            min-width: 30px;
+            text-align: right;
+        }
+
+        /* Preview */
+        .preview-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        #qr-canvas {
+            border-radius: 12px;
+            max-width: 100%;
+            image-rendering: pixelated;
+        }
+        .download-row {
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background: #111;
+            color: #e0e0e0;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn:hover { border-color: #6cf; color: #6cf; }
+        .btn.primary {
+            background: linear-gradient(135deg, #6cf, #a78bfa);
+            border: none;
+            color: #000;
+            font-weight: 600;
+        }
+        .btn.primary:hover { opacity: 0.9; }
+
+        /* Presets */
+        .presets {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        .preset-btn {
+            padding: 6px 12px;
+            border: 1px solid #222;
+            border-radius: 20px;
+            background: #0a0a12;
+            color: #888;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .preset-btn:hover { border-color: #6cf; color: #6cf; }
+
+        .logo-upload {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .logo-upload input[type="file"] { display: none; }
+        .logo-preview {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            object-fit: contain;
+            display: none;
+        }
+        .remove-logo {
+            color: #f66;
+            cursor: pointer;
+            font-size: 12px;
+            display: none;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 16px;
+            border-bottom: 1px solid #222;
+        }
+        .tab {
+            padding: 8px 16px;
+            font-size: 12px;
+            color: #666;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab.active { color: #6cf; border-bottom-color: #6cf; }
+        .tab:hover { color: #aaa; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body>
+    <div class="grain"></div>
+    <a href="../index.html" class="back">← back</a>
+    <div class="container">
+        <h1>QR Studio</h1>
+        <p class="subtitle">Generate beautiful, customizable QR codes — styled dots, gradients, logos, and more</p>
+
+        <div class="layout">
+            <div>
+                <!-- Content -->
+                <div class="panel" style="margin-bottom: 24px;">
+                    <h2>Content</h2>
+                    <div class="tabs">
+                        <div class="tab active" data-tab="text">Text / URL</div>
+                        <div class="tab" data-tab="wifi">WiFi</div>
+                        <div class="tab" data-tab="vcard">vCard</div>
+                    </div>
+                    <div class="tab-content active" id="tab-text">
+                        <div class="field">
+                            <label>Text or URL</label>
+                            <textarea id="qr-text" placeholder="https://mathiasmdesign.com">https://mathiasmdesign.com</textarea>
+                        </div>
+                    </div>
+                    <div class="tab-content" id="tab-wifi">
+                        <div class="field">
+                            <label>Network Name (SSID)</label>
+                            <input type="text" id="wifi-ssid" placeholder="MyNetwork">
+                        </div>
+                        <div class="field">
+                            <label>Password</label>
+                            <input type="text" id="wifi-pass" placeholder="password123">
+                        </div>
+                        <div class="field">
+                            <label>Encryption</label>
+                            <select id="wifi-enc">
+                                <option value="WPA">WPA/WPA2</option>
+                                <option value="WEP">WEP</option>
+                                <option value="">None</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="tab-content" id="tab-vcard">
+                        <div class="field">
+                            <label>Full Name</label>
+                            <input type="text" id="vc-name" placeholder="Mathias M.">
+                        </div>
+                        <div class="field">
+                            <label>Phone</label>
+                            <input type="text" id="vc-phone" placeholder="+49...">
+                        </div>
+                        <div class="field">
+                            <label>Email</label>
+                            <input type="text" id="vc-email" placeholder="hello@example.com">
+                        </div>
+                        <div class="field">
+                            <label>Website</label>
+                            <input type="text" id="vc-url" placeholder="https://...">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Style -->
+                <div class="panel">
+                    <h2>Style</h2>
+                    <div class="presets">
+                        <button class="preset-btn" data-preset="default">Classic</button>
+                        <button class="preset-btn" data-preset="neon">Neon</button>
+                        <button class="preset-btn" data-preset="sunset">Sunset</button>
+                        <button class="preset-btn" data-preset="ocean">Ocean</button>
+                        <button class="preset-btn" data-preset="midnight">Midnight</button>
+                        <button class="preset-btn" data-preset="forest">Forest</button>
+                        <button class="preset-btn" data-preset="mono">Mono</button>
+                        <button class="preset-btn" data-preset="candy">Candy</button>
+                    </div>
+
+                    <div class="field">
+                        <label>Dot Shape</label>
+                        <div class="radio-group" id="dot-shape">
+                            <label><input type="radio" name="dot" value="square" checked><span>■ Square</span></label>
+                            <label><input type="radio" name="dot" value="round"><span>● Round</span></label>
+                            <label><input type="radio" name="dot" value="diamond"><span>◆ Diamond</span></label>
+                            <label><input type="radio" name="dot" value="star"><span>★ Star</span></label>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label>Corner Shape</label>
+                        <div class="radio-group" id="corner-shape">
+                            <label><input type="radio" name="corner" value="square" checked><span>■ Square</span></label>
+                            <label><input type="radio" name="corner" value="round"><span>● Round</span></label>
+                            <label><input type="radio" name="corner" value="dot"><span>◉ Dot</span></label>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label>Colors</label>
+                        <div class="color-row">
+                            <label style="font-size:12px;color:#666;">FG</label>
+                            <input type="color" id="fg-color" value="#ffffff">
+                            <label style="font-size:12px;color:#666;">BG</label>
+                            <input type="color" id="bg-color" value="#0a0a0f">
+                            <label style="font-size:12px;color:#666;">Accent</label>
+                            <input type="color" id="accent-color" value="#6699ff">
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label>Gradient</label>
+                        <div class="radio-group">
+                            <label><input type="radio" name="gradient" value="none" checked><span>None</span></label>
+                            <label><input type="radio" name="gradient" value="linear"><span>Linear</span></label>
+                            <label><input type="radio" name="gradient" value="radial"><span>Radial</span></label>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label>Dot Scale</label>
+                        <div class="slider-row">
+                            <input type="range" id="dot-scale" min="50" max="100" value="90">
+                            <span class="slider-val" id="dot-scale-val">90%</span>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label>Margin</label>
+                        <div class="slider-row">
+                            <input type="range" id="margin" min="0" max="8" value="2">
+                            <span class="slider-val" id="margin-val">2</span>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label>Error Correction</label>
+                        <div class="radio-group">
+                            <label><input type="radio" name="ec" value="L"><span>Low (7%)</span></label>
+                            <label><input type="radio" name="ec" value="M" checked><span>Medium (15%)</span></label>
+                            <label><input type="radio" name="ec" value="Q"><span>Quartile (25%)</span></label>
+                            <label><input type="radio" name="ec" value="H"><span>High (30%)</span></label>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label>Center Logo</label>
+                        <div class="logo-upload">
+                            <button class="btn" onclick="document.getElementById('logo-file').click()">Upload Logo</button>
+                            <input type="file" id="logo-file" accept="image/*">
+                            <img id="logo-preview" class="logo-preview">
+                            <span id="remove-logo" class="remove-logo" onclick="removeLogo()">✕ Remove</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Preview -->
+            <div class="panel">
+                <h2>Preview</h2>
+                <div class="preview-area">
+                    <canvas id="qr-canvas" width="400" height="400"></canvas>
+                    <div class="download-row">
+                        <button class="btn primary" onclick="downloadQR('png')">⬇ PNG</button>
+                        <button class="btn" onclick="downloadQR('svg')">⬇ SVG</button>
+                        <button class="btn" onclick="copyQR()">📋 Copy</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+// ============================================================
+// Minimal QR Code Generator (no dependencies)
+// Based on QR Code specification ISO/IEC 18004
+// ============================================================
+const QRCode = (() => {
+    const EC_LEVELS = { L: 1, M: 0, Q: 3, H: 2 };
+
+    // Polynomial multiplication in GF(256)
+    const GF256 = (() => {
+        const exp = new Uint8Array(512);
+        const log = new Uint8Array(256);
+        let x = 1;
+        for (let i = 0; i < 255; i++) {
+            exp[i] = x;
+            log[x] = i;
+            x = (x << 1) ^ (x & 128 ? 0x11d : 0);
+        }
+        for (let i = 255; i < 512; i++) exp[i] = exp[i - 255];
+        return {
+            mul: (a, b) => a && b ? exp[log[a] + log[b]] : 0,
+            polyMul: (a, b) => {
+                const r = new Uint8Array(a.length + b.length - 1);
+                for (let i = 0; i < a.length; i++)
+                    for (let j = 0; j < b.length; j++)
+                        r[i + j] ^= GF256.mul(a[i], b[j]);
+                return r;
+            },
+            polyRem: (dividend, divisor) => {
+                const r = new Uint8Array(dividend);
+                for (let i = 0; i < dividend.length - divisor.length + 1; i++) {
+                    if (r[i] === 0) continue;
+                    for (let j = 1; j < divisor.length; j++)
+                        r[i + j] ^= GF256.mul(r[i], divisor[j]);
+                }
+                return r.slice(dividend.length - divisor.length + 1);
+            },
+            genPoly: (n) => {
+                let g = new Uint8Array([1]);
+                for (let i = 0; i < n; i++)
+                    g = GF256.polyMul(g, new Uint8Array([1, exp[i]]));
+                return g;
+            },
+            exp, log
+        };
+    })();
+
+    // Version capacity table (data codewords per version per EC level) [L, M, Q, H]
+    const CAPACITIES = [
+        null,
+        [19,16,13,9],[34,28,22,16],[55,44,34,26],[80,64,48,36],[108,86,62,46],
+        [136,108,76,60],[156,124,88,66],[194,154,110,86],[232,182,132,100],[274,216,154,122],
+        [324,254,180,140],[370,290,206,158],[428,334,244,180],[461,365,261,197],[523,415,295,223],
+        [589,453,325,253],[647,507,367,283],[721,563,397,313],[795,627,445,341],[861,669,485,385],
+        [932,714,512,406],[1006,782,568,442],[1094,860,614,464],[1174,914,664,514],[1276,1000,718,538],
+        [1370,1062,754,596],[1468,1128,808,628],[1531,1193,871,661],[1631,1267,911,701],[1735,1373,985,745],
+        [1843,1455,1033,793],[1955,1541,1115,845],[2071,1631,1171,901],[2191,1725,1231,961],[2306,1812,1286,986],
+        [2434,1914,1354,1054],[2566,1992,1426,1096],[2702,2102,1502,1142],[2812,2216,1582,1222],[2956,2334,1666,1276]
+    ];
+
+    // EC codewords per block [L, M, Q, H]
+    const EC_PER_BLOCK = [
+        null,
+        [7,10,13,17],[10,16,22,28],[15,26,18,22],[20,18,26,16],[26,24,18,22],
+        [18,16,24,28],[20,18,18,26],[24,22,22,26],[30,22,20,24],[18,26,24,28],
+        [20,30,28,24],[24,22,26,28],[26,22,24,22],[30,24,20,24],[22,24,30,24],
+        [24,28,24,30],[28,28,28,28],[30,26,28,28],[28,26,26,26],[28,26,28,28],
+        [28,26,30,28],[28,28,24,30],[30,28,30,30],[30,28,30,30],[26,28,30,30],
+        [28,28,28,30],[30,28,30,30],[30,28,30,30],[30,28,30,30],[30,28,30,30],
+        [30,28,30,30],[30,28,30,30],[30,28,30,30],[30,28,30,30],[30,28,30,30],
+        [30,28,30,30],[30,28,30,30],[30,28,30,30],[30,28,30,30],[30,28,30,30]
+    ];
+
+    // Number of blocks [L, M, Q, H]
+    const NUM_BLOCKS = [
+        null,
+        [1,1,1,1],[1,1,1,1],[1,1,2,2],[1,2,2,4],[1,2,4,4],
+        [2,4,4,4],[2,4,6,5],[2,4,6,6],[2,5,8,8],[4,5,8,8],
+        [4,5,8,11],[4,8,10,11],[4,9,12,16],[4,9,11,16],[6,10,14,18],
+        [6,10,14,16],[6,11,16,19],[6,13,18,21],[7,14,21,25],[8,16,20,25],
+        [8,17,23,25],[9,17,23,34],[9,18,25,30],[10,20,27,32],[12,21,29,35],
+        [12,23,34,37],[12,25,34,40],[13,26,35,42],[14,28,38,45],[15,29,40,48],
+        [16,31,43,51],[17,33,45,54],[18,35,48,57],[19,37,51,60],[19,38,53,63],
+        [20,40,56,66],[21,43,59,70],[22,45,62,74],[24,47,65,77],[25,49,68,81]
+    ];
+
+    const ALIGNMENT_POSITIONS = [
+        null, [], [6,18], [6,22], [6,26], [6,30], [6,34],
+        [6,22,38], [6,24,42], [6,26,46], [6,28,50], [6,30,54], [6,32,58],
+        [6,34,62], [6,26,46,66], [6,26,48,70], [6,26,50,74], [6,30,54,78],
+        [6,30,56,82], [6,30,58,86], [6,34,62,90], [6,28,50,72,94],
+        [6,26,50,74,98], [6,30,54,78,102], [6,28,54,80,106], [6,32,58,84,110],
+        [6,30,58,86,114], [6,34,62,90,118], [6,26,50,74,98,122],
+        [6,30,54,78,102,126], [6,26,52,78,104,130], [6,30,56,82,108,134],
+        [6,34,60,86,112,138], [6,30,58,86,114,142], [6,34,62,90,118,146],
+        [6,30,54,78,102,126,150], [6,24,50,76,102,128,154],
+        [6,28,54,80,106,132,158], [6,32,58,84,110,136,162],
+        [6,26,54,82,110,138,166], [6,30,58,86,114,142,170]
+    ];
+
+    function getVersion(dataLen, ecLevel) {
+        const ecIdx = EC_LEVELS[ecLevel];
+        for (let v = 1; v <= 40; v++) {
+            const cap = CAPACITIES[v][ecIdx];
+            // Byte mode: 4 mode bits + char count bits + data
+            const ccBits = v <= 9 ? 8 : 16;
+            const availBits = cap * 8;
+            const needed = 4 + ccBits + dataLen * 8;
+            if (needed <= availBits) return v;
+        }
+        return 40;
+    }
+
+    function encode(text, ecLevel = 'M') {
+        const data = new TextEncoder().encode(text);
+        const version = getVersion(data.length, ecLevel);
+        const ecIdx = EC_LEVELS[ecLevel];
+
+        // Build data bitstream (byte mode)
+        const ccBits = version <= 9 ? 8 : 16;
+        let bits = [];
+        const pushBits = (val, len) => {
+            for (let i = len - 1; i >= 0; i--) bits.push((val >> i) & 1);
+        };
+
+        pushBits(0b0100, 4); // Byte mode
+        pushBits(data.length, ccBits);
+        for (const b of data) pushBits(b, 8);
+
+        // Terminator + padding
+        const totalDataCW = CAPACITIES[version][ecIdx];
+        const totalBits = totalDataCW * 8;
+        const termLen = Math.min(4, totalBits - bits.length);
+        pushBits(0, termLen);
+        while (bits.length % 8) bits.push(0);
+        const padBytes = [0xEC, 0x11];
+        let pi = 0;
+        while (bits.length < totalBits) {
+            pushBits(padBytes[pi % 2], 8);
+            pi++;
+        }
+
+        // Convert to codewords
+        const codewords = [];
+        for (let i = 0; i < bits.length; i += 8) {
+            let b = 0;
+            for (let j = 0; j < 8; j++) b = (b << 1) | bits[i + j];
+            codewords.push(b);
+        }
+
+        // Split into blocks and generate EC
+        const numBlocks = NUM_BLOCKS[version][ecIdx];
+        const ecPerBlock = EC_PER_BLOCK[version][ecIdx];
+        const totalCW = totalDataCW;
+        const shortBlockLen = Math.floor(totalCW / numBlocks);
+        const longBlocks = totalCW % numBlocks;
+
+        const dataBlocks = [];
+        const ecBlocks = [];
+        const genPoly = GF256.genPoly(ecPerBlock);
+        let offset = 0;
+
+        for (let i = 0; i < numBlocks; i++) {
+            const blockLen = shortBlockLen + (i >= numBlocks - longBlocks ? 1 : 0);
+            const block = codewords.slice(offset, offset + blockLen);
+            offset += blockLen;
+            dataBlocks.push(block);
+
+            // Generate EC codewords
+            const msgPoly = new Uint8Array(block.length + ecPerBlock);
+            msgPoly.set(block);
+            const ec = GF256.polyRem(msgPoly, genPoly);
+            ecBlocks.push(ec);
+        }
+
+        // Interleave
+        const result = [];
+        const maxDataLen = shortBlockLen + (longBlocks > 0 ? 1 : 0);
+        for (let i = 0; i < maxDataLen; i++)
+            for (const block of dataBlocks)
+                if (i < block.length) result.push(block[i]);
+        for (let i = 0; i < ecPerBlock; i++)
+            for (const block of ecBlocks)
+                result.push(block[i]);
+
+        // Build matrix
+        const size = version * 4 + 17;
+        const matrix = Array.from({ length: size }, () => new Uint8Array(size));
+        const reserved = Array.from({ length: size }, () => new Uint8Array(size));
+
+        // Place finder patterns
+        const placeFinder = (row, col) => {
+            for (let r = -1; r <= 7; r++)
+                for (let c = -1; c <= 7; c++) {
+                    const mr = row + r, mc = col + c;
+                    if (mr < 0 || mr >= size || mc < 0 || mc >= size) continue;
+                    reserved[mr][mc] = 1;
+                    if (r >= 0 && r <= 6 && c >= 0 && c <= 6) {
+                        matrix[mr][mc] = (r === 0 || r === 6 || c === 0 || c === 6 ||
+                            (r >= 2 && r <= 4 && c >= 2 && c <= 4)) ? 1 : 0;
+                    }
+                }
+        };
+        placeFinder(0, 0);
+        placeFinder(0, size - 7);
+        placeFinder(size - 7, 0);
+
+        // Timing patterns
+        for (let i = 8; i < size - 8; i++) {
+            reserved[6][i] = 1;
+            reserved[i][6] = 1;
+            matrix[6][i] = (i % 2 === 0) ? 1 : 0;
+            matrix[i][6] = (i % 2 === 0) ? 1 : 0;
+        }
+
+        // Alignment patterns
+        if (version >= 2) {
+            const pos = ALIGNMENT_POSITIONS[version];
+            for (const r of pos) for (const c of pos) {
+                if (reserved[r][c]) continue;
+                for (let dr = -2; dr <= 2; dr++)
+                    for (let dc = -2; dc <= 2; dc++) {
+                        reserved[r + dr][c + dc] = 1;
+                        matrix[r + dr][c + dc] =
+                            (Math.abs(dr) === 2 || Math.abs(dc) === 2 || (dr === 0 && dc === 0)) ? 1 : 0;
+                    }
+            }
+        }
+
+        // Reserve format info areas
+        for (let i = 0; i < 8; i++) {
+            reserved[8][i] = 1; reserved[8][size - 1 - i] = 1;
+            reserved[i][8] = 1; reserved[size - 1 - i][8] = 1;
+        }
+        reserved[8][8] = 1;
+        reserved[size - 8][8] = 1; // Dark module
+        matrix[size - 8][8] = 1;
+
+        // Reserve version info (v >= 7)
+        if (version >= 7) {
+            for (let i = 0; i < 6; i++)
+                for (let j = 0; j < 3; j++) {
+                    reserved[i][size - 11 + j] = 1;
+                    reserved[size - 11 + j][i] = 1;
+                }
+        }
+
+        // Place data bits
+        const allBits = [];
+        for (const cw of result)
+            for (let b = 7; b >= 0; b--) allBits.push((cw >> b) & 1);
+
+        let bitIdx = 0;
+        let right = size - 1;
+        let upward = true;
+
+        while (right >= 0) {
+            if (right === 6) right--; // Skip timing column
+            for (let i = 0; i < size; i++) {
+                const row = upward ? size - 1 - i : i;
+                for (const col of [right, right - 1]) {
+                    if (col < 0 || reserved[row][col]) continue;
+                    if (bitIdx < allBits.length)
+                        matrix[row][col] = allBits[bitIdx++];
+                }
+            }
+            upward = !upward;
+            right -= 2;
+        }
+
+        // Masking - apply all 8 masks, pick best
+        const masks = [
+            (r, c) => (r + c) % 2 === 0,
+            (r, c) => r % 2 === 0,
+            (r, c) => c % 3 === 0,
+            (r, c) => (r + c) % 3 === 0,
+            (r, c) => (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0,
+            (r, c) => (r * c) % 2 + (r * c) % 3 === 0,
+            (r, c) => ((r * c) % 2 + (r * c) % 3) % 2 === 0,
+            (r, c) => ((r + c) % 2 + (r * c) % 3) % 2 === 0,
+        ];
+
+        let bestMask = 0, bestPenalty = Infinity;
+        for (let m = 0; m < 8; m++) {
+            const test = matrix.map(r => new Uint8Array(r));
+            for (let r = 0; r < size; r++)
+                for (let c = 0; c < size; c++)
+                    if (!reserved[r][c] && masks[m](r, c))
+                        test[r][c] ^= 1;
+            const penalty = calcPenalty(test, size);
+            if (penalty < bestPenalty) { bestPenalty = penalty; bestMask = m; }
+        }
+
+        // Apply best mask
+        for (let r = 0; r < size; r++)
+            for (let c = 0; c < size; c++)
+                if (!reserved[r][c] && masks[bestMask](r, c))
+                    matrix[r][c] ^= 1;
+
+        // Write format info
+        const formatBits = getFormatBits(ecIdx, bestMask);
+        const fmtPositions1 = [[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[8,7],[8,8],[7,8],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8]];
+        const fmtPositions2 = [[size-1,8],[size-2,8],[size-3,8],[size-4,8],[size-5,8],[size-6,8],[size-7,8],[8,size-8],[8,size-7],[8,size-6],[8,size-5],[8,size-4],[8,size-3],[8,size-2],[8,size-1]];
+        for (let i = 0; i < 15; i++) {
+            const bit = (formatBits >> (14 - i)) & 1;
+            matrix[fmtPositions1[i][0]][fmtPositions1[i][1]] = bit;
+            matrix[fmtPositions2[i][0]][fmtPositions2[i][1]] = bit;
+        }
+
+        // Write version info (v >= 7)
+        if (version >= 7) {
+            const versionBits = getVersionBits(version);
+            let bitPos = 0;
+            for (let i = 0; i < 6; i++)
+                for (let j = 0; j < 3; j++) {
+                    const bit = (versionBits >> bitPos) & 1;
+                    matrix[i][size - 11 + j] = bit;
+                    matrix[size - 11 + j][i] = bit;
+                    bitPos++;
+                }
+        }
+
+        return { matrix, size, version };
+    }
+
+    function calcPenalty(m, s) {
+        let p = 0;
+        // Rule 1: consecutive same-color modules in row/col
+        for (let r = 0; r < s; r++) {
+            let count = 1;
+            for (let c = 1; c < s; c++) {
+                if (m[r][c] === m[r][c-1]) { count++; }
+                else { if (count >= 5) p += count - 2; count = 1; }
+            }
+            if (count >= 5) p += count - 2;
+        }
+        for (let c = 0; c < s; c++) {
+            let count = 1;
+            for (let r = 1; r < s; r++) {
+                if (m[r][c] === m[r-1][c]) { count++; }
+                else { if (count >= 5) p += count - 2; count = 1; }
+            }
+            if (count >= 5) p += count - 2;
+        }
+        // Rule 2: 2x2 blocks
+        for (let r = 0; r < s - 1; r++)
+            for (let c = 0; c < s - 1; c++)
+                if (m[r][c] === m[r][c+1] && m[r][c] === m[r+1][c] && m[r][c] === m[r+1][c+1])
+                    p += 3;
+        // Simplified rules 3 & 4 omitted for size — still produces valid QR
+        return p;
+    }
+
+    function getFormatBits(ecLevel, mask) {
+        const data = (ecLevel << 3) | mask;
+        let bits = data << 10;
+        let gen = 0b10100110111 << (14 - 10);
+        for (let i = 14; i >= 10; i--)
+            if (bits & (1 << i)) bits ^= gen >> (0), gen = 0b10100110111 << (i - 10 - 1 + (i > 10 ? 0 : 0));
+
+        // Proper BCH encoding
+        let remainder = data << 10;
+        const generator = 0b10100110111;
+        for (let i = 4; i >= 0; i--) {
+            if (remainder & (1 << (i + 10)))
+                remainder ^= generator << i;
+        }
+        return ((data << 10) | remainder) ^ 0b101010000010010;
+    }
+
+    function getVersionBits(version) {
+        let remainder = version << 12;
+        const generator = 0b1111100100101;
+        for (let i = 5; i >= 0; i--) {
+            if (remainder & (1 << (i + 12)))
+                remainder ^= generator << i;
+        }
+        return (version << 12) | remainder;
+    }
+
+    return { encode };
+})();
+
+// ============================================================
+// QR Renderer
+// ============================================================
+let logoImage = null;
+
+const presets = {
+    default: { fg: '#ffffff', bg: '#0a0a0f', accent: '#ffffff', dot: 'square', corner: 'square', gradient: 'none' },
+    neon:    { fg: '#00ff88', bg: '#0a0a0f', accent: '#00ffff', dot: 'round', corner: 'round', gradient: 'linear' },
+    sunset:  { fg: '#ff6b35', bg: '#1a0a00', accent: '#ff2770', dot: 'round', corner: 'round', gradient: 'radial' },
+    ocean:   { fg: '#00b4d8', bg: '#03071e', accent: '#48cae4', dot: 'round', corner: 'dot', gradient: 'linear' },
+    midnight:{ fg: '#a78bfa', bg: '#0f0a1a', accent: '#6366f1', dot: 'diamond', corner: 'round', gradient: 'radial' },
+    forest:  { fg: '#4ade80', bg: '#0a120a', accent: '#22c55e', dot: 'round', corner: 'round', gradient: 'none' },
+    mono:    { fg: '#ffffff', bg: '#000000', accent: '#ffffff', dot: 'square', corner: 'square', gradient: 'none' },
+    candy:   { fg: '#f472b6', bg: '#1a0010', accent: '#e879f9', dot: 'star', corner: 'dot', gradient: 'linear' },
+};
+
+function getSettings() {
+    return {
+        fg: document.getElementById('fg-color').value,
+        bg: document.getElementById('bg-color').value,
+        accent: document.getElementById('accent-color').value,
+        dot: document.querySelector('input[name="dot"]:checked').value,
+        corner: document.querySelector('input[name="corner"]:checked').value,
+        gradient: document.querySelector('input[name="gradient"]:checked').value,
+        dotScale: document.getElementById('dot-scale').value / 100,
+        margin: parseInt(document.getElementById('margin').value),
+        ec: document.querySelector('input[name="ec"]:checked').value,
+    };
+}
+
+function getContent() {
+    const activeTab = document.querySelector('.tab.active').dataset.tab;
+    if (activeTab === 'wifi') {
+        const ssid = document.getElementById('wifi-ssid').value;
+        const pass = document.getElementById('wifi-pass').value;
+        const enc = document.getElementById('wifi-enc').value;
+        return `WIFI:T:${enc};S:${ssid};P:${pass};;`;
+    }
+    if (activeTab === 'vcard') {
+        const name = document.getElementById('vc-name').value;
+        const phone = document.getElementById('vc-phone').value;
+        const email = document.getElementById('vc-email').value;
+        const url = document.getElementById('vc-url').value;
+        return `BEGIN:VCARD\nVERSION:3.0\nFN:${name}\nTEL:${phone}\nEMAIL:${email}\nURL:${url}\nEND:VCARD`;
+    }
+    return document.getElementById('qr-text').value || 'https://mathiasmdesign.com';
+}
+
+function renderQR() {
+    const s = getSettings();
+    const text = getContent();
+    const canvas = document.getElementById('qr-canvas');
+    const ctx = canvas.getContext('2d');
+
+    let qr;
+    try { qr = QRCode.encode(text, s.ec); } catch(e) { console.error(e); return; }
+
+    const { matrix, size } = qr;
+    const cellSize = 10;
+    const totalSize = (size + s.margin * 2) * cellSize;
+    canvas.width = totalSize;
+    canvas.height = totalSize;
+
+    // Background
+    ctx.fillStyle = s.bg;
+    ctx.fillRect(0, 0, totalSize, totalSize);
+
+    // Create gradient if needed
+    let fillStyle;
+    if (s.gradient === 'linear') {
+        const grad = ctx.createLinearGradient(0, 0, totalSize, totalSize);
+        grad.addColorStop(0, s.fg);
+        grad.addColorStop(1, s.accent);
+        fillStyle = grad;
+    } else if (s.gradient === 'radial') {
+        const grad = ctx.createRadialGradient(totalSize/2, totalSize/2, 0, totalSize/2, totalSize/2, totalSize * 0.7);
+        grad.addColorStop(0, s.accent);
+        grad.addColorStop(1, s.fg);
+        fillStyle = grad;
+    } else {
+        fillStyle = s.fg;
+    }
+
+    // Detect finder pattern positions
+    const isFinderArea = (r, c) => {
+        return (r < 7 && c < 7) || (r < 7 && c >= size - 7) || (r >= size - 7 && c < 7);
+    };
+    const isFinderCenter = (r, c) => {
+        const centers = [[3,3],[3,size-4],[size-4,3]];
+        return centers.some(([cr, cc]) => Math.abs(r-cr) <= 2 && Math.abs(c-cc) <= 2);
+    };
+
+    // Draw modules
+    for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+            if (!matrix[r][c]) continue;
+            const x = (c + s.margin) * cellSize;
+            const y = (r + s.margin) * cellSize;
+
+            ctx.fillStyle = fillStyle;
+
+            if (isFinderArea(r, c)) {
+                // Draw finder with corner style
+                drawCornerModule(ctx, x, y, cellSize, s.corner, fillStyle, isFinderCenter(r, c));
+            } else {
+                drawDot(ctx, x, y, cellSize, s.dot, s.dotScale);
+            }
+        }
+    }
+
+    // Draw logo if present
+    if (logoImage) {
+        const logoSize = totalSize * 0.2;
+        const lx = (totalSize - logoSize) / 2;
+        const ly = (totalSize - logoSize) / 2;
+        // White background circle
+        ctx.fillStyle = s.bg;
+        const pad = logoSize * 0.1;
+        ctx.beginPath();
+        ctx.roundRect(lx - pad, ly - pad, logoSize + pad*2, logoSize + pad*2, 8);
+        ctx.fill();
+        ctx.drawImage(logoImage, lx, ly, logoSize, logoSize);
+    }
+}
+
+function drawDot(ctx, x, y, size, shape, scale) {
+    const s = size * scale;
+    const offset = (size - s) / 2;
+    const cx = x + size/2, cy = y + size/2;
+
+    ctx.beginPath();
+    switch(shape) {
+        case 'round':
+            ctx.arc(cx, cy, s/2, 0, Math.PI * 2);
+            break;
+        case 'diamond':
+            ctx.moveTo(cx, cy - s/2);
+            ctx.lineTo(cx + s/2, cy);
+            ctx.lineTo(cx, cy + s/2);
+            ctx.lineTo(cx - s/2, cy);
+            break;
+        case 'star': {
+            const outerR = s/2, innerR = s/4;
+            for (let i = 0; i < 5; i++) {
+                const a1 = (i * 72 - 90) * Math.PI / 180;
+                const a2 = ((i * 72 + 36) - 90) * Math.PI / 180;
+                ctx.lineTo(cx + Math.cos(a1) * outerR, cy + Math.sin(a1) * outerR);
+                ctx.lineTo(cx + Math.cos(a2) * innerR, cy + Math.sin(a2) * innerR);
+            }
+            break;
+        }
+        default: // square
+            ctx.rect(x + offset, y + offset, s, s);
+    }
+    ctx.closePath();
+    ctx.fill();
+}
+
+function drawCornerModule(ctx, x, y, size, style, fillStyle, isInner) {
+    ctx.beginPath();
+    switch(style) {
+        case 'round':
+            ctx.arc(x + size/2, y + size/2, size/2, 0, Math.PI * 2);
+            break;
+        case 'dot':
+            if (isInner) {
+                ctx.arc(x + size/2, y + size/2, size/2, 0, Math.PI * 2);
+            } else {
+                ctx.rect(x, y, size, size);
+            }
+            break;
+        default:
+            ctx.rect(x, y, size, size);
+    }
+    ctx.closePath();
+    ctx.fill();
+}
+
+function downloadQR(format) {
+    const canvas = document.getElementById('qr-canvas');
+    if (format === 'svg') {
+        // Generate SVG from current state
+        const svgData = canvasToSVG();
+        const blob = new Blob([svgData], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'qr-code.svg'; a.click();
+        URL.revokeObjectURL(url);
+    } else {
+        // Render at 4x for high quality PNG
+        const hiRes = document.createElement('canvas');
+        const scale = 4;
+        hiRes.width = canvas.width * scale;
+        hiRes.height = canvas.height * scale;
+        const ctx = hiRes.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(canvas, 0, 0, hiRes.width, hiRes.height);
+        const a = document.createElement('a');
+        a.href = hiRes.toDataURL('image/png');
+        a.download = 'qr-code.png';
+        a.click();
+    }
+}
+
+function canvasToSVG() {
+    const s = getSettings();
+    const text = getContent();
+    let qr;
+    try { qr = QRCode.encode(text, s.ec); } catch(e) { return ''; }
+    const { matrix, size } = qr;
+    const cell = 10;
+    const total = (size + s.margin * 2) * cell;
+
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" width="${total}" height="${total}">`;
+    svg += `<rect width="${total}" height="${total}" fill="${s.bg}"/>`;
+
+    if (s.gradient !== 'none') {
+        const id = 'qrgrad';
+        if (s.gradient === 'linear') {
+            svg += `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${s.fg}"/><stop offset="100%" stop-color="${s.accent}"/></linearGradient></defs>`;
+        } else {
+            svg += `<defs><radialGradient id="${id}"><stop offset="0%" stop-color="${s.accent}"/><stop offset="100%" stop-color="${s.fg}"/></radialGradient></defs>`;
+        }
+        svg += `<g fill="url(#${id})">`;
+    } else {
+        svg += `<g fill="${s.fg}">`;
+    }
+
+    for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+            if (!matrix[r][c]) continue;
+            const x = (c + s.margin) * cell;
+            const y = (r + s.margin) * cell;
+            const ds = cell * s.dotScale;
+            const off = (cell - ds) / 2;
+            if (s.dot === 'round') {
+                svg += `<circle cx="${x + cell/2}" cy="${y + cell/2}" r="${ds/2}"/>`;
+            } else if (s.dot === 'diamond') {
+                svg += `<polygon points="${x+cell/2},${y+off} ${x+cell-off},${y+cell/2} ${x+cell/2},${y+cell-off} ${x+off},${y+cell/2}"/>`;
+            } else {
+                svg += `<rect x="${x+off}" y="${y+off}" width="${ds}" height="${ds}"/>`;
+            }
+        }
+    }
+    svg += '</g></svg>';
+    return svg;
+}
+
+async function copyQR() {
+    const canvas = document.getElementById('qr-canvas');
+    try {
+        const blob = await new Promise(r => canvas.toBlob(r));
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    } catch(e) {
+        // Fallback: copy data URL
+        const url = canvas.toDataURL();
+        await navigator.clipboard.writeText(url);
+    }
+}
+
+function removeLogo() {
+    logoImage = null;
+    document.getElementById('logo-preview').style.display = 'none';
+    document.getElementById('remove-logo').style.display = 'none';
+    renderQR();
+}
+
+// ============================================================
+// Event Wiring
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+    // Tabs
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+            renderQR();
+        });
+    });
+
+    // Presets
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const p = presets[btn.dataset.preset];
+            if (!p) return;
+            document.getElementById('fg-color').value = p.fg;
+            document.getElementById('bg-color').value = p.bg;
+            document.getElementById('accent-color').value = p.accent;
+            document.querySelector(`input[name="dot"][value="${p.dot}"]`).checked = true;
+            document.querySelector(`input[name="corner"][value="${p.corner}"]`).checked = true;
+            document.querySelector(`input[name="gradient"][value="${p.gradient}"]`).checked = true;
+            renderQR();
+        });
+    });
+
+    // All inputs trigger re-render
+    document.querySelectorAll('input, textarea, select').forEach(el => {
+        el.addEventListener('input', () => {
+            if (el.id === 'dot-scale') document.getElementById('dot-scale-val').textContent = el.value + '%';
+            if (el.id === 'margin') document.getElementById('margin-val').textContent = el.value;
+            renderQR();
+        });
+        el.addEventListener('change', renderQR);
+    });
+
+    // Logo upload
+    document.getElementById('logo-file').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const img = new Image();
+            img.onload = () => {
+                logoImage = img;
+                document.getElementById('logo-preview').src = ev.target.result;
+                document.getElementById('logo-preview').style.display = 'block';
+                document.getElementById('remove-logo').style.display = 'inline';
+                // Auto-switch to high EC for logo
+                document.querySelector('input[name="ec"][value="H"]').checked = true;
+                renderQR();
+            };
+            img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+
+    renderQR();
+});
+</script>
+</body>
+</html>
