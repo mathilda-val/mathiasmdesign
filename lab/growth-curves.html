@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Growth Curve Explorer — M×M Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0a0f;
+            color: #e0e0e0;
+            font-family: 'Space Grotesk', sans-serif;
+            min-height: 100vh;
+        }
+
+        .main-layout {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .canvas-area {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        canvas {
+            display: block;
+            cursor: crosshair;
+            border-radius: 8px;
+        }
+
+        /* Controls panel */
+        .controls {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            background: rgba(10, 10, 15, 0.92);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 20px;
+            width: 300px;
+            max-height: calc(100vh - 32px);
+            overflow-y: auto;
+            backdrop-filter: blur(20px);
+            z-index: 10;
+            font-size: 13px;
+            transition: transform 0.3s ease;
+        }
+        .controls.hidden {
+            transform: translateX(340px);
+        }
+        .controls h3 {
+            font-size: 15px;
+            margin-bottom: 16px;
+            color: #fff;
+            font-weight: 600;
+        }
+        .control-group {
+            margin-bottom: 14px;
+        }
+        .control-group label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            color: #888;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+        }
+        .control-group label span {
+            color: #c8f;
+        }
+        .section-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #666;
+            margin: 16px 0 8px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            -webkit-appearance: none;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #c8f;
+            cursor: pointer;
+        }
+        select, button {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #e0e0e0;
+            border-radius: 6px;
+            padding: 6px 10px;
+            cursor: pointer;
+            outline: none;
+        }
+        button:hover { background: rgba(204, 136, 255, 0.15); border-color: #c8f; }
+
+        .presets {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .preset-btn {
+            font-size: 10px !important;
+            padding: 6px 6px !important;
+            text-align: center;
+        }
+        .preset-btn.active {
+            background: rgba(204, 136, 255, 0.2);
+            border-color: #c8f;
+            color: #fff;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .btn-row button { flex: 1; }
+
+        .legend {
+            margin-top: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            line-height: 1.8;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .legend-dot {
+            width: 10px;
+            height: 3px;
+            border-radius: 1px;
+            flex-shrink: 0;
+        }
+
+        /* Info bar */
+        .info {
+            position: fixed;
+            bottom: 16px;
+            left: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: #666;
+            z-index: 10;
+            line-height: 1.6;
+            background: rgba(10,10,15,0.8);
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.06);
+            max-width: 400px;
+        }
+        .info span { color: #888; }
+        .info a { color: #c8f; text-decoration: none; }
+        .info a:hover { text-decoration: underline; }
+
+        /* Back link */
+        .back {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            color: #888;
+            text-decoration: none;
+            font-size: 13px;
+            z-index: 10;
+            transition: color 0.2s;
+        }
+        .back:hover { color: #c8f; }
+
+        /* Toggle button */
+        .toggle-panel {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 11;
+            background: rgba(10,10,15,0.8);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            width: 36px;
+            height: 36px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #888;
+            font-size: 18px;
+        }
+        .controls.hidden ~ .toggle-panel { display: flex; }
+
+        /* Divergence indicator */
+        .divergence {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 5;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: rgba(255,255,255,0.15);
+            text-align: center;
+            display: none;
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: fixed;
+            pointer-events: none;
+            background: rgba(10,10,15,0.95);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: #e0e0e0;
+            z-index: 20;
+            display: none;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                width: calc(100% - 32px);
+                max-height: 50vh;
+                top: auto;
+                bottom: 16px;
+                right: 16px;
+            }
+            .controls.hidden {
+                transform: translateY(calc(100% + 32px));
+            }
+            .info { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <a href="../index.html#lab" class="back">← Back to Lab</a>
+
+    <canvas id="main"></canvas>
+
+    <div class="controls" id="controls">
+        <h3>📈 Growth Curve Explorer</h3>
+
+        <div class="presets">
+            <button class="preset-btn active" data-preset="default">Default</button>
+            <button class="preset-btn" data-preset="metr">METR Exponential</button>
+            <button class="preset-btn" data-preset="sigmoid">Sigmoid Hypothesis</button>
+            <button class="preset-btn" data-preset="both">Compare Both</button>
+        </div>
+
+        <div class="section-label">Exponential</div>
+        <div class="control-group">
+            <label>Growth Rate <span id="exp-rate-val">0.15</span></label>
+            <input type="range" id="expRate" min="0.01" max="0.50" value="0.15" step="0.01">
+        </div>
+        <div class="control-group">
+            <label>Initial Value <span id="exp-init-val">1.0</span></label>
+            <input type="range" id="expInit" min="0.1" max="10" value="1.0" step="0.1">
+        </div>
+
+        <div class="section-label">Sigmoid (Logistic)</div>
+        <div class="control-group">
+            <label>Carrying Capacity <span id="sig-cap-val">100</span></label>
+            <input type="range" id="sigCap" min="10" max="500" value="100" step="5">
+        </div>
+        <div class="control-group">
+            <label>Growth Rate <span id="sig-rate-val">0.25</span></label>
+            <input type="range" id="sigRate" min="0.05" max="1.0" value="0.25" step="0.01">
+        </div>
+        <div class="control-group">
+            <label>Inflection Point <span id="sig-mid-val">15</span></label>
+            <input type="range" id="sigMid" min="0" max="40" value="15" step="1">
+        </div>
+
+        <div class="section-label">View</div>
+        <div class="control-group">
+            <label>Time Range <span id="time-range-val">30</span></label>
+            <input type="range" id="timeRange" min="10" max="60" value="30" step="1">
+        </div>
+        <div class="control-group">
+            <label>"Now" Position <span id="now-val">20</span></label>
+            <input type="range" id="nowPos" min="0" max="60" value="20" step="1">
+        </div>
+
+        <div class="btn-row" style="margin-top: 12px;">
+            <button id="clearPoints">Clear Points</button>
+            <button id="hideBtn">Hide Panel</button>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background: #ff6b6b;"></div> Exponential: y = a·e^(rt)</div>
+            <div class="legend-item"><div class="legend-dot" style="background: #4ecdc4;"></div> Sigmoid: y = K/(1+e^(-r(t-t₀)))</div>
+            <div class="legend-item"><div class="legend-dot" style="background: rgba(204,136,255,0.4); height: 1px;"></div> "Now" marker</div>
+            <div class="legend-item" style="color: #666; margin-top: 4px;">Click canvas to add data points</div>
+        </div>
+    </div>
+
+    <button class="toggle-panel" id="showBtn">⚙</button>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <div class="info" id="info">
+        <div>Based on <a href="https://arxiv.org/abs/2602.04836" target="_blank">arXiv:2602.04836</a></div>
+        <div>"Are AI Capabilities Increasing Exponentially?"</div>
+        <div style="margin-top:4px; color: #555;">click to add data points · scroll to zoom · drag to pan</div>
+    </div>
+
+    <script>
+    const canvas = document.getElementById('main');
+    const ctx = canvas.getContext('2d');
+    const tooltip = document.getElementById('tooltip');
+
+    // State
+    let params = {
+        expRate: 0.15,
+        expInit: 1.0,
+        sigCap: 100,
+        sigRate: 0.25,
+        sigMid: 15,
+        timeRange: 30,
+        nowPos: 20
+    };
+
+    let dataPoints = [];
+    let panOffset = { x: 0, y: 0 };
+    let dragging = false;
+    let lastMouse = { x: 0, y: 0 };
+    let hoverPoint = null;
+
+    // Chart geometry
+    const margin = { top: 60, right: 40, bottom: 60, left: 70 };
+
+    function chartWidth() { return canvas.width - margin.left - margin.right; }
+    function chartHeight() { return canvas.height - margin.top - margin.bottom; }
+
+    // Math
+    function exponential(t) {
+        return params.expInit * Math.exp(params.expRate * t);
+    }
+
+    function sigmoid(t) {
+        return params.sigCap / (1 + Math.exp(-params.sigRate * (t - params.sigMid)));
+    }
+
+    // Scaling
+    function getYMax() {
+        let maxY = 0;
+        for (let t = 0; t <= params.timeRange; t += 0.5) {
+            maxY = Math.max(maxY, exponential(t), sigmoid(t));
+        }
+        for (const p of dataPoints) {
+            maxY = Math.max(maxY, p.y);
+        }
+        return maxY * 1.15;
+    }
+
+    function tToX(t) {
+        return margin.left + (t / params.timeRange) * chartWidth() + panOffset.x;
+    }
+
+    function yToScreen(y, yMax) {
+        return margin.top + chartHeight() - (y / yMax) * chartHeight();
+    }
+
+    function screenToT(sx) {
+        return ((sx - margin.left - panOffset.x) / chartWidth()) * params.timeRange;
+    }
+
+    function screenToY(sy, yMax) {
+        return ((margin.top + chartHeight() - sy) / chartHeight()) * yMax;
+    }
+
+    // Drawing
+    function render() {
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = window.innerWidth * dpr;
+        canvas.height = window.innerHeight * dpr;
+        canvas.style.width = window.innerWidth + 'px';
+        canvas.style.height = window.innerHeight + 'px';
+        ctx.scale(dpr, dpr);
+        canvas.width = window.innerWidth * dpr;
+        canvas.height = window.innerHeight * dpr;
+
+        // Re-scale
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+
+        // Background
+        ctx.fillStyle = '#0a0a0f';
+        ctx.fillRect(0, 0, w, h);
+
+        // Grain effect (subtle)
+        ctx.globalAlpha = 0.03;
+        for (let i = 0; i < 2000; i++) {
+            ctx.fillStyle = Math.random() > 0.5 ? '#fff' : '#000';
+            ctx.fillRect(Math.random() * w, Math.random() * h, 1, 1);
+        }
+        ctx.globalAlpha = 1;
+
+        const yMax = getYMax();
+
+        // Grid
+        ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+        ctx.lineWidth = 1;
+
+        // Vertical grid
+        const tStep = params.timeRange <= 20 ? 2 : params.timeRange <= 40 ? 5 : 10;
+        for (let t = 0; t <= params.timeRange; t += tStep) {
+            const x = tToX(t);
+            if (x < margin.left || x > w - margin.right) continue;
+            ctx.beginPath();
+            ctx.moveTo(x, margin.top);
+            ctx.lineTo(x, h - margin.bottom);
+            ctx.stroke();
+        }
+
+        // Horizontal grid
+        const yStep = Math.pow(10, Math.floor(Math.log10(yMax / 5)));
+        const yStepNice = yMax / 5 > yStep * 5 ? yStep * 5 : yMax / 5 > yStep * 2 ? yStep * 2 : yStep;
+        for (let y = 0; y <= yMax; y += yStepNice) {
+            const sy = yToScreen(y, yMax);
+            if (sy < margin.top || sy > h - margin.bottom) continue;
+            ctx.beginPath();
+            ctx.moveTo(margin.left, sy);
+            ctx.lineTo(w - margin.right, sy);
+            ctx.stroke();
+        }
+
+        // Axes
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(margin.left, margin.top);
+        ctx.lineTo(margin.left, h - margin.bottom);
+        ctx.lineTo(w - margin.right, h - margin.bottom);
+        ctx.stroke();
+
+        // Axis labels
+        ctx.fillStyle = '#555';
+        ctx.font = '11px JetBrains Mono, monospace';
+        ctx.textAlign = 'center';
+
+        for (let t = 0; t <= params.timeRange; t += tStep) {
+            const x = tToX(t);
+            if (x < margin.left - 5 || x > w - margin.right + 5) continue;
+            ctx.fillText(t.toString(), x, h - margin.bottom + 20);
+        }
+
+        ctx.textAlign = 'right';
+        for (let y = 0; y <= yMax; y += yStepNice) {
+            const sy = yToScreen(y, yMax);
+            if (sy < margin.top - 5 || sy > h - margin.bottom + 5) continue;
+            let label = y >= 1000 ? (y/1000).toFixed(0) + 'k' : y >= 100 ? y.toFixed(0) : y.toFixed(1);
+            ctx.fillText(label, margin.left - 10, sy + 4);
+        }
+
+        // Axis titles
+        ctx.save();
+        ctx.fillStyle = '#666';
+        ctx.font = '12px Space Grotesk, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Time (years from baseline)', margin.left + chartWidth() / 2, h - 12);
+        ctx.translate(18, margin.top + chartHeight() / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText('Capability Index', 0, 0);
+        ctx.restore();
+
+        // Clip to chart area
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(margin.left, margin.top, chartWidth(), chartHeight());
+        ctx.clip();
+
+        // "Now" marker
+        const nowX = tToX(params.nowPos);
+        if (nowX >= margin.left && nowX <= w - margin.right) {
+            ctx.strokeStyle = 'rgba(204, 136, 255, 0.25)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(nowX, margin.top);
+            ctx.lineTo(nowX, h - margin.bottom);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = 'rgba(204, 136, 255, 0.6)';
+            ctx.font = '10px JetBrains Mono, monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('NOW', nowX, margin.top - 8);
+        }
+
+        // Future zone (after "now")
+        if (nowX < w - margin.right) {
+            ctx.fillStyle = 'rgba(204, 136, 255, 0.02)';
+            ctx.fillRect(Math.max(nowX, margin.left), margin.top, 
+                w - margin.right - Math.max(nowX, margin.left), chartHeight());
+        }
+
+        // Draw sigmoid carrying capacity line
+        const capY = yToScreen(params.sigCap, yMax);
+        if (capY >= margin.top && capY <= h - margin.bottom) {
+            ctx.strokeStyle = 'rgba(78, 205, 196, 0.15)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 6]);
+            ctx.beginPath();
+            ctx.moveTo(margin.left, capY);
+            ctx.lineTo(w - margin.right, capY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = 'rgba(78, 205, 196, 0.3)';
+            ctx.font = '9px JetBrains Mono, monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText('K=' + params.sigCap, w - margin.right + 4, capY + 3);
+        }
+
+        // Sigmoid inflection marker
+        const infX = tToX(params.sigMid);
+        const infY = yToScreen(params.sigCap / 2, yMax);
+        if (infX >= margin.left && infX <= w - margin.right) {
+            ctx.fillStyle = 'rgba(78, 205, 196, 0.3)';
+            ctx.beginPath();
+            ctx.arc(infX, infY, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Draw curves
+        function drawCurve(fn, color, lineWidth) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+            ctx.beginPath();
+            let started = false;
+            for (let px = 0; px <= chartWidth(); px += 1) {
+                const t = (px / chartWidth()) * params.timeRange;
+                const y = fn(t);
+                const sy = yToScreen(y, yMax);
+                if (!started) {
+                    ctx.moveTo(margin.left + px + panOffset.x, sy);
+                    started = true;
+                } else {
+                    ctx.lineTo(margin.left + px + panOffset.x, sy);
+                }
+            }
+            ctx.stroke();
+        }
+
+        // Glow effect for curves
+        drawCurve(exponential, 'rgba(255, 107, 107, 0.15)', 6);
+        drawCurve(exponential, '#ff6b6b', 2);
+
+        drawCurve(sigmoid, 'rgba(78, 205, 196, 0.15)', 6);
+        drawCurve(sigmoid, '#4ecdc4', 2);
+
+        // "Now" dots on curves
+        if (params.nowPos >= 0 && params.nowPos <= params.timeRange) {
+            const expNow = exponential(params.nowPos);
+            const sigNow = sigmoid(params.nowPos);
+
+            // Exponential dot
+            ctx.fillStyle = '#ff6b6b';
+            ctx.beginPath();
+            ctx.arc(nowX, yToScreen(expNow, yMax), 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = 'rgba(255, 107, 107, 0.3)';
+            ctx.beginPath();
+            ctx.arc(nowX, yToScreen(expNow, yMax), 10, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Sigmoid dot
+            ctx.fillStyle = '#4ecdc4';
+            ctx.beginPath();
+            ctx.arc(nowX, yToScreen(sigNow, yMax), 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = 'rgba(78, 205, 196, 0.3)';
+            ctx.beginPath();
+            ctx.arc(nowX, yToScreen(sigNow, yMax), 10, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Divergence annotation
+            const divergence = ((expNow / sigNow - 1) * 100).toFixed(0);
+            if (Math.abs(expNow - sigNow) > yMax * 0.02) {
+                const midY = (yToScreen(expNow, yMax) + yToScreen(sigNow, yMax)) / 2;
+                ctx.strokeStyle = 'rgba(204, 136, 255, 0.2)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([2, 2]);
+                ctx.beginPath();
+                ctx.moveTo(nowX + 8, yToScreen(expNow, yMax));
+                ctx.lineTo(nowX + 8, yToScreen(sigNow, yMax));
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                ctx.fillStyle = 'rgba(204, 136, 255, 0.5)';
+                ctx.font = '9px JetBrains Mono, monospace';
+                ctx.textAlign = 'left';
+                ctx.fillText(divergence + '% gap', nowX + 14, midY + 3);
+            }
+        }
+
+        // Data points
+        for (const p of dataPoints) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(tToX(p.t), yToScreen(p.y, yMax), 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        ctx.restore(); // unclip
+
+        // Title
+        ctx.fillStyle = '#fff';
+        ctx.font = '600 16px Space Grotesk, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('Exponential vs Sigmoid Growth', margin.left, 30);
+        ctx.fillStyle = '#555';
+        ctx.font = '11px JetBrains Mono, monospace';
+        ctx.fillText('Are AI capabilities still on the steep part?', margin.left, 48);
+
+        // Now values readout
+        if (params.nowPos >= 0 && params.nowPos <= params.timeRange) {
+            const expNow = exponential(params.nowPos);
+            const sigNow = sigmoid(params.nowPos);
+            ctx.textAlign = 'right';
+            ctx.font = '10px JetBrains Mono, monospace';
+            ctx.fillStyle = '#ff6b6b';
+            ctx.fillText('exp@now: ' + expNow.toFixed(1), w - margin.right, 30);
+            ctx.fillStyle = '#4ecdc4';
+            ctx.fillText('sig@now: ' + sigNow.toFixed(1), w - margin.right, 44);
+        }
+    }
+
+    // Interaction
+    canvas.addEventListener('click', e => {
+        if (dragging) return;
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
+        // Only add points in chart area
+        if (mx < margin.left || mx > window.innerWidth - margin.right ||
+            my < margin.top || my > window.innerHeight - margin.bottom) return;
+
+        const yMax = getYMax();
+        const t = screenToT(mx);
+        const y = screenToY(my, yMax);
+
+        if (t >= 0 && t <= params.timeRange && y >= 0) {
+            dataPoints.push({ t, y });
+            render();
+        }
+    });
+
+    canvas.addEventListener('mousedown', e => {
+        if (e.button === 0) {
+            dragging = false;
+            lastMouse = { x: e.clientX, y: e.clientY };
+        }
+    });
+
+    canvas.addEventListener('mousemove', e => {
+        const dx = e.clientX - lastMouse.x;
+        const dy = e.clientY - lastMouse.y;
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+            if (e.buttons === 1) {
+                dragging = true;
+            }
+        }
+
+        // Tooltip
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
+        if (mx >= margin.left && mx <= window.innerWidth - margin.right &&
+            my >= margin.top && my <= window.innerHeight - margin.bottom) {
+            const t = screenToT(mx);
+            if (t >= 0 && t <= params.timeRange) {
+                const expVal = exponential(t);
+                const sigVal = sigmoid(t);
+                tooltip.style.display = 'block';
+                tooltip.style.left = (e.clientX + 16) + 'px';
+                tooltip.style.top = (e.clientY - 10) + 'px';
+                tooltip.innerHTML = `t = ${t.toFixed(1)}<br>` +
+                    `<span style="color:#ff6b6b">exp: ${expVal.toFixed(2)}</span><br>` +
+                    `<span style="color:#4ecdc4">sig: ${sigVal.toFixed(2)}</span><br>` +
+                    `<span style="color:#888">gap: ${((expVal/sigVal - 1)*100).toFixed(1)}%</span>`;
+            }
+        } else {
+            tooltip.style.display = 'none';
+        }
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+        tooltip.style.display = 'none';
+    });
+
+    window.addEventListener('mouseup', () => { dragging = false; });
+
+    // Controls
+    function bindSlider(id, param, valId, format) {
+        const el = document.getElementById(id);
+        el.addEventListener('input', () => {
+            params[param] = parseFloat(el.value);
+            document.getElementById(valId).textContent = format ? format(params[param]) : params[param];
+            render();
+        });
+    }
+
+    bindSlider('expRate', 'expRate', 'exp-rate-val');
+    bindSlider('expInit', 'expInit', 'exp-init-val');
+    bindSlider('sigCap', 'sigCap', 'sig-cap-val', v => v.toFixed(0));
+    bindSlider('sigRate', 'sigRate', 'sig-rate-val');
+    bindSlider('sigMid', 'sigMid', 'sig-mid-val', v => v.toFixed(0));
+    bindSlider('timeRange', 'timeRange', 'time-range-val', v => v.toFixed(0));
+    bindSlider('nowPos', 'nowPos', 'now-val', v => v.toFixed(0));
+
+    // Presets
+    const presets = {
+        default: { expRate: 0.15, expInit: 1.0, sigCap: 100, sigRate: 0.25, sigMid: 15, timeRange: 30, nowPos: 20 },
+        metr: { expRate: 0.30, expInit: 0.5, sigCap: 500, sigRate: 0.30, sigMid: 25, timeRange: 40, nowPos: 22 },
+        sigmoid: { expRate: 0.20, expInit: 1.0, sigCap: 85, sigRate: 0.40, sigMid: 12, timeRange: 30, nowPos: 20 },
+        both: { expRate: 0.18, expInit: 1.5, sigCap: 100, sigRate: 0.30, sigMid: 14, timeRange: 35, nowPos: 18 }
+    };
+
+    function applyPreset(name) {
+        const p = presets[name];
+        if (!p) return;
+        Object.assign(params, p);
+
+        document.getElementById('expRate').value = p.expRate;
+        document.getElementById('exp-rate-val').textContent = p.expRate;
+        document.getElementById('expInit').value = p.expInit;
+        document.getElementById('exp-init-val').textContent = p.expInit;
+        document.getElementById('sigCap').value = p.sigCap;
+        document.getElementById('sig-cap-val').textContent = p.sigCap;
+        document.getElementById('sigRate').value = p.sigRate;
+        document.getElementById('sig-rate-val').textContent = p.sigRate;
+        document.getElementById('sigMid').value = p.sigMid;
+        document.getElementById('sig-mid-val').textContent = p.sigMid;
+        document.getElementById('timeRange').value = p.timeRange;
+        document.getElementById('time-range-val').textContent = p.timeRange;
+        document.getElementById('nowPos').value = p.nowPos;
+        document.getElementById('now-val').textContent = p.nowPos;
+
+        document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector(`[data-preset="${name}"]`)?.classList.add('active');
+
+        render();
+    }
+
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+    });
+
+    document.getElementById('clearPoints').addEventListener('click', () => {
+        dataPoints = [];
+        render();
+    });
+
+    // Panel toggle
+    document.getElementById('hideBtn').addEventListener('click', () => {
+        document.getElementById('controls').classList.add('hidden');
+    });
+    document.getElementById('showBtn').addEventListener('click', () => {
+        document.getElementById('controls').classList.remove('hidden');
+    });
+
+    // Resize
+    window.addEventListener('resize', render);
+    render();
+    </script>
+</body>
+</html>
