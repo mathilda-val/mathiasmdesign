@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Readability Analyzer — M×M Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0a0f;
+            color: #e0e0e0;
+            font-family: 'Space Grotesk', sans-serif;
+            min-height: 100vh;
+        }
+        .grain {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 80px 24px 60px;
+            position: relative;
+            z-index: 1;
+        }
+        .back {
+            position: fixed; top: 16px; left: 16px;
+            color: #888; text-decoration: none; font-size: 13px; z-index: 10;
+        }
+        .back:hover { color: #6cf; }
+        h1 {
+            font-size: 2rem; font-weight: 700; margin-bottom: 8px;
+        }
+        .subtitle {
+            color: #666; font-size: 14px; margin-bottom: 32px;
+        }
+        .layout {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 24px;
+        }
+        @media (max-width: 800px) {
+            .layout { grid-template-columns: 1fr; }
+        }
+
+        /* Editor */
+        .editor-wrap {
+            position: relative;
+        }
+        textarea {
+            width: 100%;
+            min-height: 400px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 20px;
+            color: #e0e0e0;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 15px;
+            line-height: 1.7;
+            resize: vertical;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        textarea:focus { border-color: rgba(102, 204, 255, 0.3); }
+        textarea::placeholder { color: #444; }
+        .char-count {
+            position: absolute; bottom: 12px; right: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px; color: #444;
+        }
+
+        /* Sidebar */
+        .sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+        .score-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .score-card h3 {
+            font-size: 13px; color: #888; margin-bottom: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Big score */
+        .big-score {
+            text-align: center;
+            padding: 24px 20px;
+        }
+        .big-score .number {
+            font-size: 4rem;
+            font-weight: 700;
+            line-height: 1;
+            margin-bottom: 4px;
+            transition: color 0.3s;
+        }
+        .big-score .label {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 12px;
+        }
+        .grade-bar {
+            height: 6px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 12px;
+        }
+        .grade-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s ease, background 0.3s;
+        }
+
+        /* Stats grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-item .val {
+            font-size: 1.5rem;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .stat-item .lbl {
+            font-size: 11px;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        /* Reading level */
+        .level-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+
+        /* Sentence highlights */
+        .sentence-analysis h3 { margin-bottom: 8px; }
+        .sentence-bar {
+            display: flex;
+            gap: 2px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+        .sent-block {
+            height: 20px;
+            border-radius: 3px;
+            min-width: 4px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            position: relative;
+        }
+        .sent-block:hover { opacity: 0.8; }
+        .sent-tooltip {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a1a2e;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 11px;
+            white-space: nowrap;
+            z-index: 5;
+            color: #ccc;
+        }
+        .sent-block:hover .sent-tooltip { display: block; }
+
+        /* Word frequency */
+        .freq-list {
+            list-style: none;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+        }
+        .freq-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .freq-bar-wrap {
+            width: 60px; height: 4px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-left: 8px;
+        }
+        .freq-bar-inner {
+            height: 100%;
+            background: #6cf;
+            border-radius: 2px;
+        }
+        .freq-count { color: #666; min-width: 24px; text-align: right; }
+
+        /* Suggestions */
+        .suggestion {
+            padding: 10px 12px;
+            background: rgba(255,255,255,0.02);
+            border-left: 3px solid;
+            border-radius: 0 6px 6px 0;
+            margin-bottom: 8px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .suggestion.warn { border-color: #f90; }
+        .suggestion.good { border-color: #4c6; }
+        .suggestion.info { border-color: #6cf; }
+
+        /* Sample buttons */
+        .samples {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .sample-btn {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #888;
+            border-radius: 6px;
+            padding: 6px 12px;
+            cursor: pointer;
+        }
+        .sample-btn:hover { background: rgba(102,204,255,0.1); border-color: #6cf; color: #6cf; }
+    </style>
+</head>
+<body>
+    <div class="grain"></div>
+    <a href="../index.html#lab" class="back">← Back to Lab</a>
+
+    <div class="container">
+        <h1>📝 Readability Analyzer</h1>
+        <p class="subtitle">Paste your text. Get instant readability scores, sentence analysis, and writing suggestions.</p>
+
+        <div class="samples">
+            <button class="sample-btn" data-sample="hemingway">Hemingway</button>
+            <button class="sample-btn" data-sample="academic">Academic</button>
+            <button class="sample-btn" data-sample="marketing">Marketing Copy</button>
+            <button class="sample-btn" data-sample="legal">Legal</button>
+        </div>
+
+        <div class="layout">
+            <div class="editor-wrap">
+                <textarea id="input" placeholder="Paste your text here...&#10;&#10;The analysis updates in real-time as you type. Try one of the sample buttons above to see it in action."></textarea>
+                <div class="char-count"><span id="charCount">0</span> chars</div>
+            </div>
+
+            <div class="sidebar">
+                <div class="score-card big-score">
+                    <div class="number" id="mainScore">—</div>
+                    <div class="label" id="mainLabel">Flesch Reading Ease</div>
+                    <div id="gradeText" style="font-size:13px;color:#888;margin-bottom:4px"></div>
+                    <div class="grade-bar"><div class="grade-fill" id="gradeFill"></div></div>
+                </div>
+
+                <div class="score-card">
+                    <h3>Stats</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item"><div class="val" id="wordCount">0</div><div class="lbl">Words</div></div>
+                        <div class="stat-item"><div class="val" id="sentCount">0</div><div class="lbl">Sentences</div></div>
+                        <div class="stat-item"><div class="val" id="readTime">0m</div><div class="lbl">Read Time</div></div>
+                        <div class="stat-item"><div class="val" id="avgSentLen">0</div><div class="lbl">Avg Sent. Length</div></div>
+                        <div class="stat-item"><div class="val" id="avgSylWord">0</div><div class="lbl">Avg Syllables</div></div>
+                        <div class="stat-item"><div class="val" id="gradeLevel">—</div><div class="lbl">Grade Level</div></div>
+                    </div>
+                </div>
+
+                <div class="score-card sentence-analysis">
+                    <h3>Sentence Length Map</h3>
+                    <div class="sentence-bar" id="sentenceBar"></div>
+                    <div style="font-size:11px;color:#555;display:flex;justify-content:space-between">
+                        <span>🟢 short</span><span>🟡 medium</span><span>🔴 long</span>
+                    </div>
+                </div>
+
+                <div class="score-card">
+                    <h3>Top Words</h3>
+                    <ul class="freq-list" id="freqList">
+                        <li style="color:#555">Type to see word frequency...</li>
+                    </ul>
+                </div>
+
+                <div class="score-card">
+                    <h3>Suggestions</h3>
+                    <div id="suggestions">
+                        <div class="suggestion info">Start typing to get writing feedback.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const samples = {
+        hemingway: `He was an old man who fished alone in a skiff in the Gulf Stream and he had gone eighty-four days now without taking a fish. In the first forty days a boy had been with him. But after forty days without a fish the boy's parents had told him that the old man was now definitely and finally salao, which is the worst form of unlucky, and the boy had gone at their orders in another boat which caught three good fish the first week.`,
+        academic: `The epistemological implications of quantum decoherence theory necessitate a fundamental reconceptualization of observer-dependent measurement paradigms within the broader framework of post-Copenhagen interpretative schemas. Furthermore, the non-trivial relationship between wave function collapse and environmental entanglement suggests that classical notions of deterministic causality are insufficiently robust to account for the probabilistic nature of subatomic phenomena, particularly when examined through the lens of many-worlds interpretations or consistent histories approaches to quantum mechanics.`,
+        marketing: `Stop wasting time on marketing that doesn't work. Our platform connects you with real customers who actually want to buy. No complicated setup. No learning curve. Just results. Start your free trial today and see the difference in 24 hours. Over 10,000 businesses already did. They're not looking back.`,
+        legal: `Notwithstanding anything to the contrary contained herein, the indemnifying party shall defend, indemnify, and hold harmless the indemnified party and its officers, directors, employees, agents, successors, and assigns from and against any and all claims, damages, losses, costs, and expenses (including but not limited to reasonable attorneys' fees and court costs) arising out of or relating to any breach of this Agreement or any negligent or wrongful act or omission of the indemnifying party in connection with the performance of its obligations hereunder.`
+    };
+
+    const stopWords = new Set(['the','a','an','and','or','but','in','on','at','to','for','of','with','by','from','is','it','that','this','was','are','be','has','had','have','will','would','could','should','can','may','not','no','do','did','as','if','its','his','her','he','she','they','we','you','i','my','your','our','their','been','were','being','who','which','when','where','how','what','than','then','so','up','out','about','into','over','after','also','just','more','some','them','these','those','such','each','own','other','only','very','all','any','both','few','most','same','one','two']);
+
+    function countSyllables(word) {
+        word = word.toLowerCase().replace(/[^a-z]/g, '');
+        if (word.length <= 2) return 1;
+        word = word.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, '');
+        word = word.replace(/^y/, '');
+        const m = word.match(/[aeiouy]{1,2}/g);
+        return m ? Math.max(1, m.length) : 1;
+    }
+
+    function splitSentences(text) {
+        return text.match(/[^.!?]+[.!?]+/g) || (text.trim() ? [text.trim()] : []);
+    }
+
+    function getWords(text) {
+        return text.match(/[a-zA-Z']+/g) || [];
+    }
+
+    function analyze(text) {
+        if (!text.trim()) return null;
+
+        const words = getWords(text);
+        const sentences = splitSentences(text);
+        if (words.length === 0) return null;
+
+        const totalSyllables = words.reduce((s, w) => s + countSyllables(w), 0);
+        const avgSentLen = sentences.length > 0 ? words.length / sentences.length : words.length;
+        const avgSylPerWord = totalSyllables / words.length;
+
+        // Flesch Reading Ease
+        const flesch = 206.835 - 1.015 * avgSentLen - 84.6 * avgSylPerWord;
+
+        // Flesch-Kincaid Grade Level
+        const fkGrade = 0.39 * avgSentLen + 11.8 * avgSylPerWord - 15.59;
+
+        // Sentence lengths
+        const sentLengths = sentences.map(s => getWords(s).length);
+
+        // Word frequency (non-stop)
+        const freq = {};
+        words.forEach(w => {
+            const lw = w.toLowerCase();
+            if (!stopWords.has(lw) && lw.length > 2) {
+                freq[lw] = (freq[lw] || 0) + 1;
+            }
+        });
+        const topWords = Object.entries(freq)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 8);
+
+        return {
+            words: words.length,
+            sentences: sentences.length,
+            flesch: Math.round(Math.max(0, Math.min(100, flesch))),
+            fkGrade: Math.max(0, fkGrade).toFixed(1),
+            avgSentLen: avgSentLen.toFixed(1),
+            avgSylPerWord: avgSylPerWord.toFixed(2),
+            sentLengths,
+            topWords,
+            totalSyllables,
+            readMin: Math.max(1, Math.round(words.length / 238))
+        };
+    }
+
+    function getFleschColor(score) {
+        if (score >= 70) return '#4c6';
+        if (score >= 50) return '#6cf';
+        if (score >= 30) return '#f90';
+        return '#f55';
+    }
+
+    function getFleschLabel(score) {
+        if (score >= 80) return '5th grade · Very easy';
+        if (score >= 70) return '6th grade · Easy';
+        if (score >= 60) return '7th-8th grade · Standard';
+        if (score >= 50) return '9th-10th grade · Fairly difficult';
+        if (score >= 30) return 'College · Difficult';
+        return 'College graduate · Very difficult';
+    }
+
+    function getSuggestions(data) {
+        const sugs = [];
+        if (data.flesch >= 60)
+            sugs.push({ type: 'good', text: '✓ Good readability — most adults can follow this easily.' });
+        if (data.flesch < 40)
+            sugs.push({ type: 'warn', text: '⚠ Dense text. Consider shorter sentences and simpler words for broader reach.' });
+        if (parseFloat(data.avgSentLen) > 25)
+            sugs.push({ type: 'warn', text: `⚠ Average sentence length is ${data.avgSentLen} words. Try breaking long sentences — aim for 15-20.` });
+        if (parseFloat(data.avgSentLen) < 10 && data.sentences > 3)
+            sugs.push({ type: 'info', text: 'ℹ Very short sentences. Effective for impact, but vary length for rhythm.' });
+
+        const longSents = data.sentLengths.filter(l => l > 30).length;
+        if (longSents > 0)
+            sugs.push({ type: 'warn', text: `⚠ ${longSents} sentence${longSents > 1 ? 's' : ''} over 30 words. Long sentences lose readers.` });
+
+        if (parseFloat(data.avgSylPerWord) > 1.8)
+            sugs.push({ type: 'info', text: 'ℹ High syllable count. Using simpler words improves comprehension and pace.' });
+
+        if (data.flesch >= 70 && parseFloat(data.avgSentLen) <= 20)
+            sugs.push({ type: 'good', text: '✓ Clean, punchy writing. Hemingway would approve.' });
+
+        if (sugs.length === 0)
+            sugs.push({ type: 'good', text: '✓ Solid writing. No major readability issues.' });
+
+        return sugs;
+    }
+
+    function update() {
+        const text = document.getElementById('input').value;
+        document.getElementById('charCount').textContent = text.length;
+
+        const data = analyze(text);
+        if (!data) {
+            document.getElementById('mainScore').textContent = '—';
+            document.getElementById('gradeText').textContent = '';
+            document.getElementById('gradeFill').style.width = '0%';
+            document.getElementById('wordCount').textContent = '0';
+            document.getElementById('sentCount').textContent = '0';
+            document.getElementById('readTime').textContent = '0m';
+            document.getElementById('avgSentLen').textContent = '0';
+            document.getElementById('avgSylWord').textContent = '0';
+            document.getElementById('gradeLevel').textContent = '—';
+            document.getElementById('sentenceBar').innerHTML = '';
+            document.getElementById('freqList').innerHTML = '<li style="color:#555">Type to see word frequency...</li>';
+            document.getElementById('suggestions').innerHTML = '<div class="suggestion info">Start typing to get writing feedback.</div>';
+            return;
+        }
+
+        const color = getFleschColor(data.flesch);
+        document.getElementById('mainScore').textContent = data.flesch;
+        document.getElementById('mainScore').style.color = color;
+        document.getElementById('gradeText').textContent = getFleschLabel(data.flesch);
+        const fill = document.getElementById('gradeFill');
+        fill.style.width = data.flesch + '%';
+        fill.style.background = color;
+
+        document.getElementById('wordCount').textContent = data.words;
+        document.getElementById('sentCount').textContent = data.sentences;
+        document.getElementById('readTime').textContent = data.readMin + 'm';
+        document.getElementById('avgSentLen').textContent = data.avgSentLen;
+        document.getElementById('avgSylWord').textContent = data.avgSylPerWord;
+        document.getElementById('gradeLevel').textContent = data.fkGrade;
+
+        // Sentence bar
+        const maxSentLen = Math.max(...data.sentLengths, 1);
+        document.getElementById('sentenceBar').innerHTML = data.sentLengths.map((len, i) => {
+            const w = Math.max(6, (len / maxSentLen) * 100);
+            const c = len <= 15 ? '#4c6' : len <= 25 ? '#f90' : '#f55';
+            return `<div class="sent-block" style="width:${w}%;background:${c}">
+                <div class="sent-tooltip">Sentence ${i+1}: ${len} words</div>
+            </div>`;
+        }).join('');
+
+        // Frequency
+        const maxFreq = data.topWords.length > 0 ? data.topWords[0][1] : 1;
+        document.getElementById('freqList').innerHTML = data.topWords.map(([word, count]) =>
+            `<li>
+                <span>${word}</span>
+                <span style="display:flex;align-items:center">
+                    <div class="freq-bar-wrap"><div class="freq-bar-inner" style="width:${(count/maxFreq)*100}%"></div></div>
+                    <span class="freq-count">${count}</span>
+                </span>
+            </li>`
+        ).join('') || '<li style="color:#555">No significant words found</li>';
+
+        // Suggestions
+        const sugs = getSuggestions(data);
+        document.getElementById('suggestions').innerHTML = sugs.map(s =>
+            `<div class="suggestion ${s.type}">${s.text}</div>`
+        ).join('');
+    }
+
+    document.getElementById('input').addEventListener('input', update);
+
+    // Sample buttons
+    document.querySelectorAll('.sample-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.getElementById('input').value = samples[btn.dataset.sample];
+            update();
+        });
+    });
+    </script>
+</body>
+</html>
