@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Echo Chamber Simulator — M×M Lab</title>
+    <meta name="description" content="Interactive simulation of how information filtering creates echo chambers. Watch diverse ecosystems collapse in real-time.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --border: #1e1e2e;
+            --text: #e0e0e8;
+            --text-dim: #6a6a80;
+            --accent: #7c5cfc;
+            --accent-glow: rgba(124, 92, 252, 0.15);
+            --green: #34d399;
+            --red: #f87171;
+            --yellow: #fbbf24;
+            --mono: 'JetBrains Mono', monospace;
+            --sans: 'Space Grotesk', sans-serif;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; }
+
+        .back-link {
+            position: fixed; top: 1.5rem; left: 1.5rem; z-index: 100;
+            color: var(--text-dim); text-decoration: none; font-size: 0.85rem;
+            display: flex; align-items: center; gap: 0.4rem; transition: color 0.2s;
+        }
+        .back-link:hover { color: var(--accent); }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 4rem 1.5rem 2rem; }
+        h1 { font-size: 2rem; font-weight: 600; margin-bottom: 0.5rem; }
+        .subtitle { color: var(--text-dim); font-size: 0.95rem; margin-bottom: 2rem; max-width: 600px; line-height: 1.6; }
+
+        .sim-layout { display: grid; grid-template-columns: 1fr 300px; gap: 2rem; }
+        @media (max-width: 768px) { .sim-layout { grid-template-columns: 1fr; } }
+
+        canvas { width: 100%; aspect-ratio: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; cursor: crosshair; }
+
+        .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.2rem; }
+        .panel h3 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); }
+
+        .control-group { display: flex; flex-direction: column; gap: 0.4rem; }
+        .control-group label { font-size: 0.8rem; color: var(--text-dim); display: flex; justify-content: space-between; }
+        .control-group label span { color: var(--accent); font-family: var(--mono); }
+        input[type="range"] {
+            -webkit-appearance: none; width: 100%; height: 4px; border-radius: 2px;
+            background: var(--border); outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+            background: var(--accent); cursor: pointer;
+        }
+
+        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+        .stat { background: var(--bg); border-radius: 8px; padding: 0.8rem; text-align: center; }
+        .stat-value { font-size: 1.4rem; font-weight: 600; font-family: var(--mono); }
+        .stat-label { font-size: 0.7rem; color: var(--text-dim); margin-top: 0.2rem; }
+        .stat-value.green { color: var(--green); }
+        .stat-value.red { color: var(--red); }
+        .stat-value.yellow { color: var(--yellow); }
+        .stat-value.accent { color: var(--accent); }
+
+        .btn-row { display: flex; gap: 0.5rem; }
+        .btn {
+            flex: 1; padding: 0.6rem; border: 1px solid var(--border); border-radius: 8px;
+            background: var(--surface); color: var(--text); font-family: var(--sans);
+            font-size: 0.8rem; cursor: pointer; transition: all 0.2s; text-align: center;
+        }
+        .btn:hover { border-color: var(--accent); background: var(--accent-glow); }
+        .btn.active { border-color: var(--accent); background: var(--accent); color: #fff; }
+
+        .diversity-bar { height: 20px; border-radius: 4px; overflow: hidden; display: flex; transition: all 0.5s; }
+        .diversity-segment { transition: flex 0.5s ease; height: 100%; }
+
+        .legend { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+        .legend-item { display: flex; align-items: center; gap: 0.3rem; font-size: 0.7rem; color: var(--text-dim); }
+        .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+        .info-box {
+            background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+            padding: 1rem; font-size: 0.78rem; color: var(--text-dim); line-height: 1.6;
+        }
+        .info-box strong { color: var(--text); }
+    </style>
+</head>
+<body>
+    <a href="../index.html#lab" class="back-link">← Back to Lab</a>
+
+    <div class="container">
+        <h1>Echo Chamber Simulator</h1>
+        <p class="subtitle">
+            Watch how information filtering reshapes an ecosystem in real-time.
+            Each dot is an information source. Color = perspective. Size = reach.
+            Crank up the filter strength and watch diversity collapse.
+        </p>
+
+        <div class="sim-layout">
+            <div>
+                <canvas id="sim"></canvas>
+                <div style="margin-top: 1rem;">
+                    <h3 style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 0.5rem;">Source Diversity</h3>
+                    <div class="diversity-bar" id="diversityBar"></div>
+                    <div class="legend" id="legend" style="margin-top: 0.5rem;"></div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>Controls</h3>
+
+                <div class="btn-row">
+                    <button class="btn active" id="btnPlay">▶ Play</button>
+                    <button class="btn" id="btnReset">↺ Reset</button>
+                </div>
+
+                <div class="control-group">
+                    <label>Filter Strength <span id="filterVal">0%</span></label>
+                    <input type="range" id="filterStrength" min="0" max="100" value="0">
+                </div>
+
+                <div class="control-group">
+                    <label>Popularity Bias <span id="biasVal">30%</span></label>
+                    <input type="range" id="popularityBias" min="0" max="100" value="30">
+                </div>
+
+                <div class="control-group">
+                    <label>Source Count <span id="countVal">200</span></label>
+                    <input type="range" id="sourceCount" min="50" max="500" value="200" step="10">
+                </div>
+
+                <div class="control-group">
+                    <label>Clustering Force <span id="clusterVal">20%</span></label>
+                    <input type="range" id="clusterForce" min="0" max="100" value="20">
+                </div>
+
+                <h3>Ecosystem Health</h3>
+
+                <div class="stats">
+                    <div class="stat">
+                        <div class="stat-value green" id="statDiversity">1.00</div>
+                        <div class="stat-label">Shannon Diversity</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value yellow" id="statSources">200</div>
+                        <div class="stat-label">Active Sources</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value accent" id="statClusters">7</div>
+                        <div class="stat-label">Perspectives</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value red" id="statConcentration">0.14</div>
+                        <div class="stat-label">HHI (Concentration)</div>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <strong>How it works:</strong> Each dot represents an information source with a perspective (color) and reach (size).
+                    <strong>Filter Strength</strong> simulates AI curation — higher values suppress low-reach, non-mainstream sources.
+                    <strong>Popularity Bias</strong> makes big sources grow bigger (rich-get-richer).
+                    <strong>Clustering</strong> pulls similar perspectives together.
+                    Watch the Shannon Diversity index and HHI to track ecosystem health.
+                </div>
+
+                <div class="info-box" style="border-color: var(--accent); background: var(--accent-glow);">
+                    <strong>Inspired by:</strong> <em>"The Rise of AI Search"</em> (Aral et al., 2026) — found AI search surfaces fewer long-tail sources and lower response variety vs traditional search.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const canvas = document.getElementById('sim');
+    const ctx = canvas.getContext('2d');
+
+    // Perspective colors
+    const PERSPECTIVES = [
+        { name: 'Progressive', color: '#7c5cfc' },
+        { name: 'Conservative', color: '#f87171' },
+        { name: 'Centrist', color: '#fbbf24' },
+        { name: 'Libertarian', color: '#34d399' },
+        { name: 'Academic', color: '#60a5fa' },
+        { name: 'Independent', color: '#c084fc' },
+        { name: 'Niche/Local', color: '#fb923c' },
+    ];
+
+    // Build legend
+    const legendEl = document.getElementById('legend');
+    PERSPECTIVES.forEach(p => {
+        const item = document.createElement('div');
+        item.className = 'legend-item';
+        item.innerHTML = `<div class="legend-dot" style="background:${p.color}"></div>${p.name}`;
+        legendEl.appendChild(item);
+    });
+
+    let sources = [];
+    let running = true;
+    let mouseX = -1, mouseY = -1;
+    let W, H, dpr;
+
+    function resize() {
+        const rect = canvas.getBoundingClientRect();
+        dpr = window.devicePixelRatio || 1;
+        W = rect.width;
+        H = rect.height;
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function createSources(count) {
+        sources = [];
+        for (let i = 0; i < count; i++) {
+            const perspective = Math.floor(Math.random() * PERSPECTIVES.length);
+            // Power law for reach — most are small, few are big
+            const reach = Math.pow(Math.random(), 3) * 0.9 + 0.1; // 0.1 to 1.0
+            const angle = Math.random() * Math.PI * 2;
+            const dist = Math.random() * 0.4;
+            sources.push({
+                x: 0.5 + Math.cos(angle) * dist,
+                y: 0.5 + Math.sin(angle) * dist,
+                vx: (Math.random() - 0.5) * 0.001,
+                vy: (Math.random() - 0.5) * 0.001,
+                perspective,
+                baseReach: reach,
+                reach,
+                alive: true,
+                opacity: 1,
+                age: 0,
+            });
+        }
+    }
+
+    function getSlider(id) { return parseFloat(document.getElementById(id).value); }
+
+    function update() {
+        const filterStrength = getSlider('filterStrength') / 100;
+        const popularityBias = getSlider('popularityBias') / 100;
+        const clusterForce = getSlider('clusterForce') / 100;
+
+        // Compute perspective centroids
+        const centroids = PERSPECTIVES.map(() => ({ x: 0, y: 0, count: 0 }));
+        sources.forEach(s => {
+            if (!s.alive) return;
+            centroids[s.perspective].x += s.x;
+            centroids[s.perspective].y += s.y;
+            centroids[s.perspective].count++;
+        });
+        centroids.forEach(c => {
+            if (c.count > 0) { c.x /= c.count; c.y /= c.count; }
+            else { c.x = 0.5; c.y = 0.5; }
+        });
+
+        sources.forEach(s => {
+            if (!s.alive) {
+                s.opacity = Math.max(0, s.opacity - 0.02);
+                return;
+            }
+            s.age++;
+
+            // Filter: suppress low-reach sources proportional to filter strength
+            const survivalThreshold = filterStrength * 0.7;
+            if (s.baseReach < survivalThreshold && s.age > 60) {
+                // Probability of being filtered out increases with filter strength
+                if (Math.random() < filterStrength * 0.01) {
+                    s.alive = false;
+                    return;
+                }
+            }
+
+            // Popularity bias: big get bigger, small get smaller
+            const biasEffect = popularityBias * 0.002;
+            s.reach = s.baseReach + (s.baseReach > 0.5 ? biasEffect * s.age * 0.01 : -biasEffect * s.age * 0.005);
+            s.reach = Math.max(0.05, Math.min(1.0, s.reach));
+
+            // Clustering: pull toward perspective centroid
+            const c = centroids[s.perspective];
+            const dx = c.x - s.x;
+            const dy = c.y - s.y;
+            s.vx += dx * clusterForce * 0.0005;
+            s.vy += dy * clusterForce * 0.0005;
+
+            // Gentle center pull
+            s.vx += (0.5 - s.x) * 0.0001;
+            s.vy += (0.5 - s.y) * 0.0001;
+
+            // Mouse repulsion
+            if (mouseX >= 0) {
+                const mx = mouseX / W, my = mouseY / H;
+                const mdx = s.x - mx, mdy = s.y - my;
+                const md = Math.sqrt(mdx * mdx + mdy * mdy);
+                if (md < 0.15 && md > 0.001) {
+                    const force = 0.0005 / (md * md);
+                    s.vx += mdx * force;
+                    s.vy += mdy * force;
+                }
+            }
+
+            // Damping + update
+            s.vx *= 0.98;
+            s.vy *= 0.98;
+            s.x += s.vx;
+            s.y += s.vy;
+
+            // Boundaries (soft bounce)
+            if (s.x < 0.02) { s.x = 0.02; s.vx *= -0.5; }
+            if (s.x > 0.98) { s.x = 0.98; s.vx *= -0.5; }
+            if (s.y < 0.02) { s.y = 0.02; s.vy *= -0.5; }
+            if (s.y > 0.98) { s.y = 0.98; s.vy *= -0.5; }
+        });
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, W, H);
+
+        // Draw connections between close same-perspective sources
+        const clusterForce = getSlider('clusterForce') / 100;
+        if (clusterForce > 0.3) {
+            ctx.lineWidth = 0.5;
+            for (let i = 0; i < sources.length; i++) {
+                const a = sources[i];
+                if (a.opacity < 0.1) continue;
+                for (let j = i + 1; j < sources.length; j++) {
+                    const b = sources[j];
+                    if (b.opacity < 0.1 || a.perspective !== b.perspective) continue;
+                    const dx = (a.x - b.x) * W, dy = (a.y - b.y) * H;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 50) {
+                        const alpha = (1 - dist / 50) * 0.15 * Math.min(a.opacity, b.opacity);
+                        ctx.strokeStyle = PERSPECTIVES[a.perspective].color + Math.round(alpha * 255).toString(16).padStart(2, '0');
+                        ctx.beginPath();
+                        ctx.moveTo(a.x * W, a.y * H);
+                        ctx.lineTo(b.x * W, b.y * H);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        // Draw sources
+        sources.forEach(s => {
+            if (s.opacity < 0.01) return;
+            const x = s.x * W, y = s.y * H;
+            const r = 2 + s.reach * 8;
+            const color = PERSPECTIVES[s.perspective].color;
+
+            // Glow for large sources
+            if (s.reach > 0.6 && s.alive) {
+                const grad = ctx.createRadialGradient(x, y, r, x, y, r * 3);
+                grad.addColorStop(0, color + '30');
+                grad.addColorStop(1, color + '00');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(x, y, r * 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.globalAlpha = s.opacity * (s.alive ? 0.9 : 0.3);
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        });
+    }
+
+    function computeStats() {
+        const alive = sources.filter(s => s.alive);
+        const counts = new Array(PERSPECTIVES.length).fill(0);
+        alive.forEach(s => counts[s.perspective]++);
+        const total = alive.length || 1;
+
+        // Shannon diversity (normalized)
+        const maxH = Math.log(PERSPECTIVES.length);
+        let H = 0;
+        counts.forEach(c => {
+            if (c > 0) {
+                const p = c / total;
+                H -= p * Math.log(p);
+            }
+        });
+        const normalizedH = (H / maxH).toFixed(2);
+
+        // HHI
+        let hhi = 0;
+        counts.forEach(c => { const s = c / total; hhi += s * s; });
+
+        // Active perspectives
+        const activePerspectives = counts.filter(c => c > 0).length;
+
+        document.getElementById('statDiversity').textContent = normalizedH;
+        document.getElementById('statDiversity').className = 'stat-value ' + (normalizedH > 0.7 ? 'green' : normalizedH > 0.4 ? 'yellow' : 'red');
+        document.getElementById('statSources').textContent = alive.length;
+        document.getElementById('statClusters').textContent = activePerspectives;
+        document.getElementById('statConcentration').textContent = hhi.toFixed(2);
+        document.getElementById('statConcentration').className = 'stat-value ' + (hhi < 0.2 ? 'green' : hhi < 0.4 ? 'yellow' : 'red');
+
+        // Diversity bar
+        const bar = document.getElementById('diversityBar');
+        bar.innerHTML = '';
+        counts.forEach((c, i) => {
+            if (c === 0) return;
+            const seg = document.createElement('div');
+            seg.className = 'diversity-segment';
+            seg.style.flex = c;
+            seg.style.background = PERSPECTIVES[i].color;
+            bar.appendChild(seg);
+        });
+    }
+
+    function loop() {
+        if (running) {
+            update();
+        }
+        draw();
+        computeStats();
+        requestAnimationFrame(loop);
+    }
+
+    // Slider displays
+    ['filterStrength:filterVal:%', 'popularityBias:biasVal:%', 'sourceCount:countVal:', 'clusterForce:clusterVal:%'].forEach(s => {
+        const [id, valId, suffix] = s.split(':');
+        document.getElementById(id).addEventListener('input', e => {
+            document.getElementById(valId).textContent = e.target.value + suffix;
+        });
+    });
+
+    // Source count change → reset
+    document.getElementById('sourceCount').addEventListener('change', () => {
+        createSources(getSlider('sourceCount'));
+    });
+
+    // Buttons
+    document.getElementById('btnPlay').addEventListener('click', function() {
+        running = !running;
+        this.textContent = running ? '▶ Play' : '⏸ Pause';
+        this.classList.toggle('active', running);
+    });
+    document.getElementById('btnReset').addEventListener('click', () => {
+        createSources(getSlider('sourceCount'));
+    });
+
+    // Mouse tracking
+    canvas.addEventListener('mousemove', e => {
+        const rect = canvas.getBoundingClientRect();
+        mouseX = e.clientX - rect.left;
+        mouseY = e.clientY - rect.top;
+    });
+    canvas.addEventListener('mouseleave', () => { mouseX = -1; mouseY = -1; });
+
+    // Init
+    resize();
+    window.addEventListener('resize', resize);
+    createSources(200);
+    loop();
+    </script>
+</body>
+</html>
