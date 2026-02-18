@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cellular Automata — M×M Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0a0f;
+            color: #e0e0e0;
+            font-family: 'Space Grotesk', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .controls {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            background: rgba(10, 10, 15, 0.92);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 20px;
+            width: 300px;
+            backdrop-filter: blur(20px);
+            z-index: 10;
+            font-size: 13px;
+            transition: transform 0.3s ease;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .controls.hidden { transform: translateX(340px); }
+        .controls h3 {
+            font-size: 15px;
+            margin-bottom: 12px;
+            color: #fff;
+            font-weight: 600;
+        }
+        .control-group {
+            margin-bottom: 14px;
+        }
+        .control-group label {
+            display: block;
+            margin-bottom: 4px;
+            color: #888;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .control-group select,
+        .control-group input[type="range"] {
+            width: 100%;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            color: #fff;
+            padding: 6px 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+        }
+        .control-group input[type="range"] {
+            -webkit-appearance: none;
+            height: 4px;
+            border: none;
+            border-radius: 2px;
+            background: rgba(255,255,255,0.15);
+            padding: 0;
+        }
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px; height: 14px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+        }
+        .val {
+            float: right;
+            font-family: 'JetBrains Mono', monospace;
+            color: #aaa;
+        }
+
+        .rule-vis {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 4px;
+            margin-top: 8px;
+        }
+        .rule-case {
+            text-align: center;
+            cursor: pointer;
+            border-radius: 4px;
+            padding: 4px 2px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.06);
+            transition: background 0.15s;
+        }
+        .rule-case:hover { background: rgba(255,255,255,0.08); }
+        .rule-case .pattern {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            color: #666;
+            margin-bottom: 2px;
+        }
+        .rule-case .result {
+            width: 12px; height: 12px;
+            border-radius: 2px;
+            margin: 0 auto;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+        .rule-case .result.on { background: #fff; }
+        .rule-case .result.off { background: transparent; }
+
+        .btn-row {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        .btn {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 6px;
+            background: rgba(255,255,255,0.06);
+            color: #fff;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 12px;
+            cursor: pointer;
+            text-align: center;
+            transition: background 0.15s;
+        }
+        .btn:hover { background: rgba(255,255,255,0.12); }
+        .btn.active { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.25); }
+
+        .presets {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-bottom: 12px;
+        }
+        .preset {
+            padding: 4px 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 4px;
+            background: rgba(255,255,255,0.04);
+            color: #aaa;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .preset:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .preset.active { background: rgba(255,255,255,0.15); color: #fff; border-color: rgba(255,255,255,0.25); }
+
+        .toggle-btn {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            width: 36px; height: 36px;
+            border-radius: 8px;
+            background: rgba(10,10,15,0.8);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+            z-index: 11;
+            display: none;
+            backdrop-filter: blur(10px);
+        }
+        .controls.hidden ~ .toggle-btn { display: flex; align-items: center; justify-content: center; }
+
+        .info-line {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: #555;
+            margin-top: 10px;
+            line-height: 1.5;
+        }
+        .info-line a { color: #888; }
+
+        .color-swatches {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+        .swatch {
+            width: 24px; height: 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: border-color 0.15s;
+        }
+        .swatch.active { border-color: #fff; }
+
+        .back-link {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            color: #555;
+            text-decoration: none;
+            font-size: 13px;
+            z-index: 10;
+            transition: color 0.2s;
+        }
+        .back-link:hover { color: #aaa; }
+    </style>
+</head>
+<body>
+    <a href="../index.html" class="back-link">← back</a>
+    <canvas id="canvas"></canvas>
+
+    <div class="controls" id="controls">
+        <h3>Cellular Automata</h3>
+
+        <div class="control-group">
+            <label>Presets</label>
+            <div class="presets" id="presets"></div>
+        </div>
+
+        <div class="control-group">
+            <label>Rule <span class="val" id="ruleVal">30</span></label>
+            <input type="range" id="ruleSlider" min="0" max="255" value="30">
+        </div>
+
+        <div class="control-group">
+            <label>Rule Visualization (click to toggle bits)</label>
+            <div class="rule-vis" id="ruleVis"></div>
+        </div>
+
+        <div class="control-group">
+            <label>Cell Size <span class="val" id="cellVal">3</span>px</label>
+            <input type="range" id="cellSize" min="1" max="10" value="3">
+        </div>
+
+        <div class="control-group">
+            <label>Initial Condition</label>
+            <div class="btn-row">
+                <div class="btn active" data-init="single" id="initSingle">Single Cell</div>
+                <div class="btn" data-init="random" id="initRandom">Random</div>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>Random Density <span class="val" id="densityVal">50</span>%</label>
+            <input type="range" id="density" min="5" max="95" value="50">
+        </div>
+
+        <div class="control-group">
+            <label>Color Theme</label>
+            <div class="color-swatches" id="colorSwatches"></div>
+        </div>
+
+        <div class="btn-row">
+            <div class="btn" id="btnRegen">↻ Regenerate</div>
+            <div class="btn" id="btnRandom">🎲 Random Rule</div>
+        </div>
+
+        <div class="info-line">
+            <strong>Rule 30</strong>: Wolfram's favorite. Generates chaos from a single cell.<br>
+            <strong>Rule 110</strong>: Turing complete — can compute anything.<br>
+            <strong>Rule 90</strong>: Sierpiński triangle emerges.<br><br>
+            256 possible elementary rules. Each maps 3-cell neighborhoods to 0 or 1.
+        </div>
+    </div>
+
+    <button class="toggle-btn" id="toggleBtn">⚙</button>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        const PRESETS = [
+            { rule: 30, name: '30', desc: 'Chaos' },
+            { rule: 90, name: '90', desc: 'Sierpiński' },
+            { rule: 110, name: '110', desc: 'Turing Complete' },
+            { rule: 150, name: '150', desc: 'Fractal' },
+            { rule: 184, name: '184', desc: 'Traffic' },
+            { rule: 54, name: '54', desc: 'Complex' },
+            { rule: 60, name: '60', desc: 'Asymmetric' },
+            { rule: 73, name: '73', desc: 'Organic' },
+            { rule: 105, name: '105', desc: 'Lace' },
+            { rule: 169, name: '169', desc: 'Columns' },
+            { rule: 225, name: '225', desc: 'Curtains' },
+            { rule: 45, name: '45', desc: 'Intricate' },
+        ];
+
+        const THEMES = [
+            { bg: '#0a0a0f', fg: '#ffffff', name: 'Mono' },
+            { bg: '#0a0a0f', fg: '#00ff88', name: 'Matrix' },
+            { bg: '#0a0a0f', fg: '#ff6b35', name: 'Ember' },
+            { bg: '#0a0a0f', fg: '#00bbff', name: 'Cyan' },
+            { bg: '#0a0a0f', fg: '#ff44aa', name: 'Pink' },
+            { bg: '#0f0a14', fg: '#bf7fff', name: 'Violet' },
+            { bg: '#0a0f0a', fg: '#88ff44', name: 'Acid' },
+            { bg: '#14100a', fg: '#ffcc00', name: 'Gold' },
+        ];
+
+        let state = {
+            rule: 30,
+            cellSize: 3,
+            initMode: 'single',
+            density: 50,
+            theme: 0,
+        };
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        function getRuleBit(rule, pattern) {
+            return (rule >> pattern) & 1;
+        }
+
+        function generate() {
+            resize();
+            const cs = state.cellSize;
+            const cols = Math.ceil(canvas.width / cs);
+            const rows = Math.ceil(canvas.height / cs);
+            const theme = THEMES[state.theme];
+
+            ctx.fillStyle = theme.bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Init first row
+            let row = new Uint8Array(cols);
+            if (state.initMode === 'single') {
+                row[Math.floor(cols / 2)] = 1;
+            } else {
+                for (let i = 0; i < cols; i++) {
+                    row[i] = Math.random() * 100 < state.density ? 1 : 0;
+                }
+            }
+
+            ctx.fillStyle = theme.fg;
+
+            // Draw all rows
+            for (let y = 0; y < rows; y++) {
+                // Draw current row
+                for (let x = 0; x < cols; x++) {
+                    if (row[x]) {
+                        ctx.fillRect(x * cs, y * cs, cs, cs);
+                    }
+                }
+
+                // Compute next row
+                const next = new Uint8Array(cols);
+                for (let x = 0; x < cols; x++) {
+                    const left = row[(x - 1 + cols) % cols];
+                    const center = row[x];
+                    const right = row[(x + 1) % cols];
+                    const pattern = (left << 2) | (center << 1) | right;
+                    next[x] = getRuleBit(state.rule, pattern);
+                }
+                row = next;
+            }
+        }
+
+        // Build presets
+        const presetsEl = document.getElementById('presets');
+        PRESETS.forEach(p => {
+            const el = document.createElement('div');
+            el.className = 'preset' + (p.rule === state.rule ? ' active' : '');
+            el.textContent = p.name;
+            el.title = p.desc;
+            el.addEventListener('click', () => {
+                state.rule = p.rule;
+                document.getElementById('ruleSlider').value = p.rule;
+                document.getElementById('ruleVal').textContent = p.rule;
+                updateRuleVis();
+                updatePresets();
+                generate();
+            });
+            presetsEl.appendChild(el);
+        });
+
+        function updatePresets() {
+            presetsEl.querySelectorAll('.preset').forEach((el, i) => {
+                el.classList.toggle('active', PRESETS[i].rule === state.rule);
+            });
+        }
+
+        // Rule visualization
+        function updateRuleVis() {
+            const vis = document.getElementById('ruleVis');
+            vis.innerHTML = '';
+            for (let i = 7; i >= 0; i--) {
+                const bit = getRuleBit(state.rule, i);
+                const el = document.createElement('div');
+                el.className = 'rule-case';
+                const pat = [(i >> 2) & 1, (i >> 1) & 1, i & 1].map(b => b ? '█' : '░').join('');
+                el.innerHTML = `<div class="pattern">${pat}</div><div class="result ${bit ? 'on' : 'off'}"></div>`;
+                el.addEventListener('click', () => {
+                    state.rule ^= (1 << i);
+                    document.getElementById('ruleSlider').value = state.rule;
+                    document.getElementById('ruleVal').textContent = state.rule;
+                    updateRuleVis();
+                    updatePresets();
+                    generate();
+                });
+                vis.appendChild(el);
+            }
+            // Update info
+            const infoEl = document.querySelector('.info-line');
+            const preset = PRESETS.find(p => p.rule === state.rule);
+            if (preset) {
+                infoEl.innerHTML = `<strong>Rule ${preset.rule}</strong>: ${preset.desc}<br><br>256 possible elementary rules. Each maps a 3-cell neighborhood to 0 or 1. Click the bits above to craft your own rule.`;
+            } else {
+                infoEl.innerHTML = `<strong>Rule ${state.rule}</strong>: Custom rule<br><br>256 possible elementary rules. Each maps a 3-cell neighborhood to 0 or 1. Click the bits above to craft your own rule.`;
+            }
+        }
+
+        // Color swatches
+        const swatchesEl = document.getElementById('colorSwatches');
+        THEMES.forEach((t, i) => {
+            const el = document.createElement('div');
+            el.className = 'swatch' + (i === state.theme ? ' active' : '');
+            el.style.background = t.fg;
+            el.title = t.name;
+            el.addEventListener('click', () => {
+                state.theme = i;
+                swatchesEl.querySelectorAll('.swatch').forEach((s, j) => s.classList.toggle('active', j === i));
+                generate();
+            });
+            swatchesEl.appendChild(el);
+        });
+
+        // Controls
+        document.getElementById('ruleSlider').addEventListener('input', e => {
+            state.rule = +e.target.value;
+            document.getElementById('ruleVal').textContent = state.rule;
+            updateRuleVis();
+            updatePresets();
+            generate();
+        });
+
+        document.getElementById('cellSize').addEventListener('input', e => {
+            state.cellSize = +e.target.value;
+            document.getElementById('cellVal').textContent = state.cellSize;
+            generate();
+        });
+
+        document.getElementById('density').addEventListener('input', e => {
+            state.density = +e.target.value;
+            document.getElementById('densityVal').textContent = state.density;
+            if (state.initMode === 'random') generate();
+        });
+
+        document.getElementById('initSingle').addEventListener('click', () => {
+            state.initMode = 'single';
+            document.getElementById('initSingle').classList.add('active');
+            document.getElementById('initRandom').classList.remove('active');
+            generate();
+        });
+
+        document.getElementById('initRandom').addEventListener('click', () => {
+            state.initMode = 'random';
+            document.getElementById('initRandom').classList.add('active');
+            document.getElementById('initSingle').classList.remove('active');
+            generate();
+        });
+
+        document.getElementById('btnRegen').addEventListener('click', generate);
+
+        document.getElementById('btnRandom').addEventListener('click', () => {
+            state.rule = Math.floor(Math.random() * 256);
+            document.getElementById('ruleSlider').value = state.rule;
+            document.getElementById('ruleVal').textContent = state.rule;
+            updateRuleVis();
+            updatePresets();
+            generate();
+        });
+
+        document.getElementById('toggleBtn').addEventListener('click', () => {
+            document.getElementById('controls').classList.remove('hidden');
+        });
+
+        // Double-click to hide controls
+        document.getElementById('controls').querySelector('h3').addEventListener('dblclick', () => {
+            document.getElementById('controls').classList.add('hidden');
+        });
+
+        window.addEventListener('resize', generate);
+
+        // Init
+        updateRuleVis();
+        generate();
+    </script>
+</body>
+</html>
