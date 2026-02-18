@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raymarching Playground — M×M Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0a0a0a; color: #e0e0e0; font-family: 'Space Grotesk', sans-serif; overflow: hidden; height: 100vh; }
+        
+        canvas { display: block; width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 0; }
+        
+        .controls {
+            position: fixed; top: 0; right: 0; width: 340px; height: 100vh;
+            background: rgba(10, 10, 10, 0.85); backdrop-filter: blur(20px);
+            border-left: 1px solid rgba(255,255,255,0.08);
+            z-index: 10; overflow-y: auto; padding: 20px;
+            display: flex; flex-direction: column; gap: 16px;
+        }
+        
+        .controls h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.5px; }
+        .controls h1 span { color: #888; font-weight: 300; }
+        
+        .back { color: #888; text-decoration: none; font-size: 13px; display: inline-flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+        .back:hover { color: #fff; }
+        
+        label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 6px; }
+        
+        .scene-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .scene-btn {
+            padding: 10px 8px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+            background: rgba(255,255,255,0.03); color: #ccc; font-family: inherit; font-size: 12px;
+            cursor: pointer; transition: all 0.2s; text-align: center;
+        }
+        .scene-btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); }
+        .scene-btn.active { background: rgba(255,255,255,0.1); border-color: #fff; color: #fff; }
+        .scene-btn .icon { font-size: 20px; display: block; margin-bottom: 4px; }
+        
+        .slider-row { display: flex; flex-direction: column; gap: 4px; }
+        .slider-header { display: flex; justify-content: space-between; align-items: center; }
+        .slider-val { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #aaa; }
+        
+        input[type="range"] {
+            -webkit-appearance: none; width: 100%; height: 4px; border-radius: 2px;
+            background: rgba(255,255,255,0.1); outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+            background: #fff; cursor: pointer;
+        }
+        
+        .color-row { display: flex; gap: 8px; align-items: center; }
+        .color-row input[type="color"] {
+            -webkit-appearance: none; border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px; width: 36px; height: 28px; cursor: pointer; background: none;
+        }
+        .color-row input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
+        .color-row input[type="color"]::-webkit-color-swatch { border-radius: 4px; border: none; }
+        
+        .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+        .toggle {
+            width: 40px; height: 22px; border-radius: 11px; background: rgba(255,255,255,0.1);
+            position: relative; cursor: pointer; transition: background 0.2s;
+        }
+        .toggle.on { background: rgba(255,255,255,0.3); }
+        .toggle::after {
+            content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+            border-radius: 50%; background: #fff; transition: transform 0.2s;
+        }
+        .toggle.on::after { transform: translateX(18px); }
+        
+        .editor-wrap {
+            border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; overflow: hidden;
+        }
+        .editor-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 12px; background: rgba(255,255,255,0.03);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .editor-header span { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+        .compile-btn {
+            padding: 4px 12px; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px;
+            background: rgba(255,255,255,0.05); color: #fff; font-size: 11px;
+            cursor: pointer; font-family: inherit;
+        }
+        .compile-btn:hover { background: rgba(255,255,255,0.1); }
+        textarea {
+            width: 100%; min-height: 200px; background: transparent; border: none;
+            color: #8f8; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+            padding: 12px; outline: none; resize: vertical; line-height: 1.5;
+        }
+        
+        .error-bar {
+            display: none; padding: 8px 12px; background: rgba(255,60,60,0.15);
+            border: 1px solid rgba(255,60,60,0.3); border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #f88;
+        }
+        .error-bar.show { display: block; }
+        
+        .stats {
+            font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #666;
+            display: flex; gap: 16px;
+        }
+        
+        .section-divider { border: none; border-top: 1px solid rgba(255,255,255,0.06); margin: 4px 0; }
+        
+        @media (max-width: 768px) {
+            .controls {
+                width: 100%; height: auto; max-height: 50vh; top: auto; bottom: 0;
+                border-left: none; border-top: 1px solid rgba(255,255,255,0.08);
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="c"></canvas>
+    
+    <div class="controls">
+        <a href="../index.html#lab" class="back">← Back to Lab</a>
+        <h1>Raymarcher <span>Playground</span></h1>
+        <div class="stats">
+            <span id="fps">0 fps</span>
+            <span id="res">0×0</span>
+        </div>
+        
+        <hr class="section-divider">
+        <label>Scene</label>
+        <div class="scene-grid">
+            <button class="scene-btn active" data-scene="spheres"><span class="icon">🔮</span>Morphing Spheres</button>
+            <button class="scene-btn" data-scene="fractal"><span class="icon">🌀</span>Menger Fractal</button>
+            <button class="scene-btn" data-scene="terrain"><span class="icon">🏔️</span>Terrain</button>
+            <button class="scene-btn" data-scene="tunnel"><span class="icon">🕳️</span>Infinite Tunnel</button>
+            <button class="scene-btn" data-scene="blobs"><span class="icon">💧</span>Metaballs</button>
+            <button class="scene-btn" data-scene="gyroid"><span class="icon">🧬</span>Gyroid Surface</button>
+        </div>
+        
+        <hr class="section-divider">
+        <label>Parameters</label>
+        
+        <div class="slider-row">
+            <div class="slider-header"><span>Camera Distance</span><span class="slider-val" id="camDistVal">5.0</span></div>
+            <input type="range" id="camDist" min="1" max="20" step="0.1" value="5">
+        </div>
+        
+        <div class="slider-row">
+            <div class="slider-header"><span>Camera Speed</span><span class="slider-val" id="camSpeedVal">0.3</span></div>
+            <input type="range" id="camSpeed" min="0" max="2" step="0.05" value="0.3">
+        </div>
+        
+        <div class="slider-row">
+            <div class="slider-header"><span>Morph Speed</span><span class="slider-val" id="morphSpeedVal">1.0</span></div>
+            <input type="range" id="morphSpeed" min="0" max="5" step="0.1" value="1">
+        </div>
+        
+        <div class="slider-row">
+            <div class="slider-header"><span>Glow Intensity</span><span class="slider-val" id="glowVal">0.5</span></div>
+            <input type="range" id="glow" min="0" max="2" step="0.05" value="0.5">
+        </div>
+        
+        <div class="slider-row">
+            <div class="slider-header"><span>Render Scale</span><span class="slider-val" id="scaleVal">0.5</span></div>
+            <input type="range" id="scale" min="0.25" max="1" step="0.05" value="0.5">
+        </div>
+        
+        <hr class="section-divider">
+        <label>Colors</label>
+        <div class="color-row">
+            <input type="color" id="col1" value="#ff6644">
+            <span style="font-size:12px">Primary</span>
+            <input type="color" id="col2" value="#4488ff">
+            <span style="font-size:12px">Secondary</span>
+        </div>
+        <div class="color-row" style="margin-top:6px">
+            <input type="color" id="bgCol" value="#0a0a0a">
+            <span style="font-size:12px">Background</span>
+        </div>
+        
+        <hr class="section-divider">
+        <div class="toggle-row">
+            <span style="font-size:13px">Ambient Occlusion</span>
+            <div class="toggle on" id="aoToggle"></div>
+        </div>
+        <div class="toggle-row">
+            <span style="font-size:13px">Auto-Rotate Camera</span>
+            <div class="toggle on" id="rotateToggle"></div>
+        </div>
+        
+        <hr class="section-divider">
+        <label>GLSL Editor</label>
+        <div class="editor-wrap">
+            <div class="editor-header">
+                <span>Scene SDF</span>
+                <button class="compile-btn" id="compileBtn">⟳ Compile (Ctrl+Enter)</button>
+            </div>
+            <textarea id="editor" spellcheck="false"></textarea>
+        </div>
+        <div class="error-bar" id="errorBar"></div>
+    </div>
+
+<script>
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+if (!gl) { document.body.innerHTML = '<p style="color:#fff;padding:40px">WebGL not supported</p>'; }
+
+// --- State ---
+let currentScene = 'spheres';
+let params = {
+    camDist: 5.0, camSpeed: 0.3, morphSpeed: 1.0, glow: 0.5, scale: 0.5,
+    col1: [1, 0.4, 0.27], col2: [0.27, 0.53, 1], bgCol: [0.04, 0.04, 0.04],
+    ao: true, autoRotate: true
+};
+
+// --- Scene SDFs ---
+const scenes = {
+    spheres: `
+float scene(vec3 p) {
+    float t = uTime * uMorphSpeed;
+    float d = length(p) - 1.0;
+    d = min(d, length(p - vec3(sin(t)*2.0, cos(t*0.7)*1.5, sin(t*0.5)*2.0)) - 0.7);
+    d = min(d, length(p - vec3(-sin(t*0.8)*2.5, sin(t)*1.0, cos(t*0.6)*1.5)) - 0.5);
+    d = min(d, length(p - vec3(cos(t*0.6)*1.5, -sin(t*0.9)*2.0, sin(t*1.1)*1.0)) - 0.6);
+    // Smooth union with remaining spheres
+    float d2 = length(p - vec3(sin(t*1.3)*1.8, cos(t*0.4)*1.2, -cos(t*0.8)*2.2)) - 0.4;
+    d = smin(d, d2, 0.8);
+    d2 = length(p - vec3(-cos(t*0.5)*2.0, sin(t*1.2)*0.8, sin(t*0.3)*1.5)) - 0.55;
+    d = smin(d, d2, 0.6);
+    return d;
+}`,
+    fractal: `
+float scene(vec3 p) {
+    float t = uTime * uMorphSpeed * 0.3;
+    // Menger sponge
+    float d = sdBox(p, vec3(1.5));
+    float s = 1.0;
+    for (int i = 0; i < 4; i++) {
+        vec3 a = mod(p * s, 2.0) - 1.0;
+        s *= 3.0;
+        vec3 r = abs(1.0 - 3.0 * abs(a));
+        float da = max(r.x, r.y);
+        float db = max(r.y, r.z);
+        float dc = max(r.z, r.x);
+        float c = (min(da, min(db, dc)) - 1.0) / s;
+        d = max(d, c);
+    }
+    // Animate with rotation
+    return d;
+}`,
+    terrain: `
+float scene(vec3 p) {
+    float t = uTime * uMorphSpeed * 0.2;
+    float h = 0.0;
+    vec2 q = p.xz;
+    // Layered noise for terrain
+    float amp = 1.5;
+    float freq = 0.5;
+    for (int i = 0; i < 5; i++) {
+        h += amp * sin(q.x * freq + t) * cos(q.y * freq * 0.7 + t * 0.5);
+        amp *= 0.5;
+        freq *= 2.1;
+    }
+    return p.y - h * 0.5;
+}`,
+    tunnel: `
+float scene(vec3 p) {
+    float t = uTime * uMorphSpeed;
+    // Move through tunnel
+    p.z += t * 2.0;
+    // Repeating tunnel segments
+    float angle = atan(p.y, p.x);
+    float r = length(p.xy);
+    float walls = 2.5 - r + 0.3 * sin(angle * 6.0 + p.z * 0.5) + 0.1 * sin(p.z * 2.0);
+    // Add rings
+    float rings = abs(mod(p.z, 3.0) - 1.5) - 0.1;
+    float ringShape = max(abs(r - 2.2), rings);
+    return min(-walls, ringShape);
+}`,
+    blobs: `
+float scene(vec3 p) {
+    float t = uTime * uMorphSpeed;
+    float d = 1e10;
+    // Animated metaballs using smooth min
+    for (int i = 0; i < 6; i++) {
+        float fi = float(i);
+        vec3 center = vec3(
+            sin(t * (0.5 + fi * 0.15) + fi) * 2.0,
+            cos(t * (0.4 + fi * 0.1) + fi * 2.0) * 1.5,
+            sin(t * (0.3 + fi * 0.12) + fi * 3.0) * 2.0
+        );
+        float radius = 0.5 + 0.2 * sin(t + fi * 1.5);
+        d = smin(d, length(p - center) - radius, 1.0);
+    }
+    return d;
+}`,
+    gyroid: `
+float scene(vec3 p) {
+    float t = uTime * uMorphSpeed * 0.4;
+    float scale = 3.14159;
+    vec3 q = p * scale;
+    // Gyroid surface: sin(x)cos(y) + sin(y)cos(z) + sin(z)cos(x) = 0
+    float g = sin(q.x + t) * cos(q.y) + sin(q.y + t*0.7) * cos(q.z) + sin(q.z + t*0.5) * cos(q.x);
+    float d = abs(g) / scale - 0.03;
+    // Bound it in a sphere
+    d = max(d, length(p) - 2.5);
+    return d;
+}`
+};
+
+// --- Vertex shader ---
+const vsrc = `#version 300 es
+in vec2 a_pos;
+out vec2 vUv;
+void main() { vUv = a_pos * 0.5 + 0.5; gl_Position = vec4(a_pos, 0, 1); }`;
+
+function buildFrag(sceneSdf) {
+    return `#version 300 es
+precision highp float;
+in vec2 vUv;
+out vec4 fragColor;
+
+uniform float uTime;
+uniform vec2 uResolution;
+uniform float uCamDist;
+uniform float uCamSpeed;
+uniform float uMorphSpeed;
+uniform float uGlow;
+uniform vec3 uCol1;
+uniform vec3 uCol2;
+uniform vec3 uBgCol;
+uniform bool uAO;
+uniform bool uAutoRotate;
+uniform vec2 uMouse;
+
+float smin(float a, float b, float k) {
+    float h = clamp(0.5 + 0.5*(b-a)/k, 0.0, 1.0);
+    return mix(b, a, h) - k*h*(1.0-h);
+}
+
+float sdBox(vec3 p, vec3 b) {
+    vec3 q = abs(p) - b;
+    return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
+}
+
+${sceneSdf}
+
+vec3 calcNormal(vec3 p) {
+    vec2 e = vec2(0.001, 0.0);
+    return normalize(vec3(
+        scene(p+e.xyy) - scene(p-e.xyy),
+        scene(p+e.yxy) - scene(p-e.yxy),
+        scene(p+e.yyx) - scene(p-e.yyx)
+    ));
+}
+
+float calcAO(vec3 p, vec3 n) {
+    float ao = 0.0;
+    float scale = 1.0;
+    for (int i = 0; i < 5; i++) {
+        float dist = 0.02 + 0.1 * float(i);
+        float d = scene(p + n * dist);
+        ao += (dist - d) * scale;
+        scale *= 0.5;
+    }
+    return clamp(1.0 - 2.0 * ao, 0.0, 1.0);
+}
+
+void main() {
+    vec2 uv = (gl_FragCoord.xy - 0.5 * uResolution) / min(uResolution.x, uResolution.y);
+    
+    // Camera
+    float angle = uAutoRotate ? uTime * uCamSpeed : 0.0;
+    angle += uMouse.x * 3.14159 * 2.0;
+    float pitch = uMouse.y * 1.2 - 0.3;
+    vec3 ro = vec3(cos(angle)*cos(pitch), sin(pitch) + 0.5, sin(angle)*cos(pitch)) * uCamDist;
+    vec3 ta = vec3(0.0, 0.0, 0.0);
+    vec3 ww = normalize(ta - ro);
+    vec3 uu = normalize(cross(ww, vec3(0, 1, 0)));
+    vec3 vv = cross(uu, ww);
+    vec3 rd = normalize(uv.x*uu + uv.y*vv + 1.5*ww);
+    
+    // Raymarch
+    float t = 0.0;
+    float glow = 0.0;
+    int i;
+    for (i = 0; i < 128; i++) {
+        vec3 p = ro + rd * t;
+        float d = scene(p);
+        glow += exp(-d * 10.0);
+        if (d < 0.001 || t > 50.0) break;
+        t += d;
+    }
+    
+    vec3 col = uBgCol;
+    
+    if (t < 50.0) {
+        vec3 p = ro + rd * t;
+        vec3 n = calcNormal(p);
+        
+        // Lighting
+        vec3 lightDir = normalize(vec3(1.0, 2.0, -1.0));
+        float diff = max(dot(n, lightDir), 0.0);
+        float spec = pow(max(dot(reflect(-lightDir, n), -rd), 0.0), 32.0);
+        float fresnel = pow(1.0 - max(dot(-rd, n), 0.0), 3.0);
+        
+        // Color based on normal + position
+        float colorMix = 0.5 + 0.5 * sin(p.x * 2.0 + p.y + uTime * 0.5);
+        vec3 baseCol = mix(uCol1, uCol2, colorMix);
+        
+        float ao = uAO ? calcAO(p, n) : 1.0;
+        
+        col = baseCol * (0.15 + 0.7 * diff) * ao;
+        col += vec3(1.0) * spec * 0.5;
+        col += mix(uCol1, uCol2, fresnel) * fresnel * 0.4;
+        
+        // Fog
+        float fog = exp(-t * 0.08);
+        col = mix(uBgCol, col, fog);
+    }
+    
+    // Glow
+    col += mix(uCol1, uCol2, 0.5) * glow * uGlow * 0.01;
+    
+    // Tone mapping + gamma
+    col = col / (1.0 + col);
+    col = pow(col, vec3(0.4545));
+    
+    fragColor = vec4(col, 1.0);
+}`;
+}
+
+// --- WebGL setup ---
+function createShader(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        const err = gl.getShaderInfoLog(s);
+        gl.deleteShader(s);
+        throw err;
+    }
+    return s;
+}
+
+let program, uLocs = {};
+const quad = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+
+function compile(sceneSdf) {
+    const errBar = document.getElementById('errorBar');
+    try {
+        const vs = createShader(gl.VERTEX_SHADER, vsrc);
+        const fs = createShader(gl.FRAGMENT_SHADER, buildFrag(sceneSdf));
+        const p = gl.createProgram();
+        gl.attachShader(p, vs); gl.attachShader(p, fs);
+        gl.linkProgram(p);
+        if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw gl.getProgramInfoLog(p);
+        
+        if (program) gl.deleteProgram(program);
+        program = p;
+        gl.useProgram(program);
+        
+        const aPos = gl.getAttribLocation(program, 'a_pos');
+        gl.enableVertexAttribArray(aPos);
+        gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+        
+        ['uTime','uResolution','uCamDist','uCamSpeed','uMorphSpeed','uGlow','uCol1','uCol2','uBgCol','uAO','uAutoRotate','uMouse'].forEach(n => {
+            uLocs[n] = gl.getUniformLocation(program, n);
+        });
+        
+        errBar.classList.remove('show');
+    } catch(e) {
+        errBar.textContent = String(e).slice(0, 200);
+        errBar.classList.add('show');
+    }
+}
+
+// --- Init ---
+const editor = document.getElementById('editor');
+editor.value = scenes[currentScene].trim();
+compile(scenes[currentScene]);
+
+// --- Scene buttons ---
+document.querySelectorAll('.scene-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.scene-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentScene = btn.dataset.scene;
+        const sdf = scenes[currentScene];
+        editor.value = sdf.trim();
+        compile(sdf);
+    });
+});
+
+// --- Sliders ---
+['camDist','camSpeed','morphSpeed','glow','scale'].forEach(id => {
+    const el = document.getElementById(id);
+    const val = document.getElementById(id + 'Val');
+    el.addEventListener('input', () => {
+        params[id] = parseFloat(el.value);
+        val.textContent = params[id].toFixed(id === 'scale' ? 2 : 1);
+    });
+});
+
+// --- Colors ---
+function hexToRgb(hex) {
+    const r = parseInt(hex.slice(1,3),16)/255;
+    const g = parseInt(hex.slice(3,5),16)/255;
+    const b = parseInt(hex.slice(5,7),16)/255;
+    return [r,g,b];
+}
+['col1','col2','bgCol'].forEach(id => {
+    document.getElementById(id).addEventListener('input', e => {
+        params[id] = hexToRgb(e.target.value);
+    });
+});
+
+// --- Toggles ---
+document.getElementById('aoToggle').addEventListener('click', function() {
+    this.classList.toggle('on'); params.ao = this.classList.contains('on');
+});
+document.getElementById('rotateToggle').addEventListener('click', function() {
+    this.classList.toggle('on'); params.autoRotate = this.classList.contains('on');
+});
+
+// --- Compile button ---
+document.getElementById('compileBtn').addEventListener('click', () => compile(editor.value));
+document.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); compile(editor.value); }
+});
+
+// --- Mouse ---
+let mouse = { x: 0, y: 0.5 };
+let isDragging = false;
+canvas.addEventListener('mousedown', () => isDragging = true);
+window.addEventListener('mouseup', () => isDragging = false);
+canvas.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    mouse.x += e.movementX * 0.003;
+    mouse.y = Math.max(0, Math.min(1, mouse.y - e.movementY * 0.003));
+});
+canvas.addEventListener('touchstart', e => { isDragging = true; e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchend', () => isDragging = false);
+canvas.addEventListener('touchmove', e => {
+    if (e.touches.length === 1) {
+        const t = e.touches[0];
+        mouse.x += (t.clientX - (lastTouch?.x || t.clientX)) * 0.003;
+        mouse.y = Math.max(0, Math.min(1, mouse.y - (t.clientY - (lastTouch?.y || t.clientY)) * 0.003));
+        lastTouch = { x: t.clientX, y: t.clientY };
+    }
+    e.preventDefault();
+}, { passive: false });
+let lastTouch = null;
+canvas.addEventListener('touchstart', e => { lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY }; });
+
+// --- Render loop ---
+let frameCount = 0, lastFpsTime = 0;
+function render(time) {
+    time *= 0.001;
+    
+    const s = params.scale * devicePixelRatio;
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    canvas.width = w * s; canvas.height = h * s;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    
+    if (program) {
+        gl.useProgram(program);
+        gl.uniform1f(uLocs.uTime, time);
+        gl.uniform2f(uLocs.uResolution, canvas.width, canvas.height);
+        gl.uniform1f(uLocs.uCamDist, params.camDist);
+        gl.uniform1f(uLocs.uCamSpeed, params.camSpeed);
+        gl.uniform1f(uLocs.uMorphSpeed, params.morphSpeed);
+        gl.uniform1f(uLocs.uGlow, params.glow);
+        gl.uniform3fv(uLocs.uCol1, params.col1);
+        gl.uniform3fv(uLocs.uCol2, params.col2);
+        gl.uniform3fv(uLocs.uBgCol, params.bgCol);
+        gl.uniform1i(uLocs.uAO, params.ao ? 1 : 0);
+        gl.uniform1i(uLocs.uAutoRotate, params.autoRotate ? 1 : 0);
+        gl.uniform2f(uLocs.uMouse, mouse.x, mouse.y);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+    
+    // FPS
+    frameCount++;
+    if (time - lastFpsTime >= 1) {
+        document.getElementById('fps').textContent = frameCount + ' fps';
+        document.getElementById('res').textContent = canvas.width + '×' + canvas.height;
+        frameCount = 0; lastFpsTime = time;
+    }
+    
+    requestAnimationFrame(render);
+}
+requestAnimationFrame(render);
+</script>
+</body>
+</html>
