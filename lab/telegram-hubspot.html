@@ -4,18 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Telegram → HubSpot Lead Bot — Automation Showcase</title>
-    <meta name="description" content="A 2-part n8n automation that captures leads from Telegram messages and business card photos, then creates and assigns contacts in HubSpot.">
+    <meta name="description" content="An n8n automation that captures leads from Telegram messages and business card photos, then creates contacts in HubSpot with notes, file attachments, and spreadsheet logging.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../styles.css">
     <style>
         body { background: #0a0a0a; color: #e0e0e0; }
-        .showcase { max-width: 900px; margin: 0 auto; padding: 6rem 2rem 4rem; }
+        .showcase { max-width: 920px; margin: 0 auto; padding: 6rem 2rem 4rem; }
         .back-link { color: #666; text-decoration: none; font-size: 0.85rem; letter-spacing: 0.05em; }
         .back-link:hover { color: #fff; }
         .showcase h1 { font-family: 'Space Grotesk', sans-serif; font-size: 2.4rem; font-weight: 700; margin: 2rem 0 0.5rem; line-height: 1.2; }
-        .showcase .subtitle { color: #888; font-size: 1.1rem; margin-bottom: 2.5rem; }
+        .showcase .subtitle { color: #888; font-size: 1.1rem; margin-bottom: 2.5rem; line-height: 1.6; }
         .badge { display: inline-block; background: #1a3a2a; color: #4ade80; padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; font-weight: 500; letter-spacing: 0.05em; margin-bottom: 1.5rem; }
         
         /* Flow diagram */
@@ -23,7 +23,6 @@
         .flow-title { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #666; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.1em; }
         
         .flow { display: flex; flex-direction: column; gap: 0; }
-        .flow-row { display: flex; align-items: center; gap: 0; }
         .flow-node { 
             background: #141414; 
             border: 1px solid #2a2a2a; 
@@ -37,13 +36,16 @@
         .flow-node .node-icon { font-size: 1.3rem; margin-bottom: 0.4rem; }
         .flow-node .node-label { font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 0.9rem; color: #fff; }
         .flow-node .node-desc { font-size: 0.75rem; color: #777; margin-top: 0.25rem; line-height: 1.4; }
+        .flow-node .node-model { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: #a855f7; margin-top: 0.3rem; }
         
         .flow-node.trigger { border-color: #3b82f6; background: linear-gradient(135deg, #0c1929, #141414); }
         .flow-node.process { border-color: #a855f7; background: linear-gradient(135deg, #1a0c29, #141414); }
+        .flow-node.ai { border-color: #ec4899; background: linear-gradient(135deg, #290c1e, #141414); }
         .flow-node.action { border-color: #f59e0b; background: linear-gradient(135deg, #291a0c, #141414); }
         .flow-node.output { border-color: #4ade80; background: linear-gradient(135deg, #0c2914, #141414); }
-        .flow-node.condition { border-color: #f43f5e; background: linear-gradient(135deg, #290c14, #141414); border-radius: 12px; }
+        .flow-node.condition { border-color: #f43f5e; background: linear-gradient(135deg, #290c14, #141414); }
         .flow-node.sub { border-color: #06b6d4; background: linear-gradient(135deg, #0c2429, #141414); border-style: dashed; }
+        .flow-node.storage { border-color: #22d3ee; background: linear-gradient(135deg, #0c2429, #141414); }
         
         .flow-arrow { 
             display: flex; 
@@ -51,10 +53,6 @@
             padding: 0.4rem 0;
             color: #333;
             font-size: 1.2rem;
-        }
-        .flow-arrow.horizontal {
-            padding: 0 0.5rem;
-            align-items: center;
         }
         
         .flow-split {
@@ -78,22 +76,14 @@
             background: #1a1a1a;
             margin-bottom: 0.3rem;
         }
-        
-        /* Description section */
-        .desc-section { margin: 3rem 0; }
-        .desc-section h2 { font-family: 'Space Grotesk', sans-serif; font-size: 1.4rem; font-weight: 600; margin-bottom: 1rem; }
-        .desc-section p { color: #999; line-height: 1.8; margin-bottom: 1rem; }
-        .desc-section ul { color: #999; line-height: 2; padding-left: 1.5rem; }
-        .desc-section li { margin-bottom: 0.3rem; }
-        
-        .tech-stack { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.5rem; }
-        .tech-tag { background: #1a1a1a; border: 1px solid #2a2a2a; color: #888; padding: 0.3rem 0.8rem; border-radius: 6px; font-size: 0.8rem; font-family: 'JetBrains Mono', monospace; }
-        
-        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 2rem 0; }
-        .stat-card { background: #141414; border: 1px solid #2a2a2a; border-radius: 10px; padding: 1.25rem; text-align: center; }
-        .stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 1.8rem; font-weight: 700; color: #fff; }
-        .stat-label { font-size: 0.75rem; color: #666; margin-top: 0.3rem; }
 
+        .flow-parallel {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.75rem;
+            margin: 0.5rem 0;
+        }
+        
         .workflow-label {
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.7rem;
@@ -106,10 +96,31 @@
             margin: 0.5rem 0;
         }
 
+        .center { display: flex; justify-content: center; }
+
+        /* Description section */
+        .desc-section { margin: 3rem 0; }
+        .desc-section h2 { font-family: 'Space Grotesk', sans-serif; font-size: 1.4rem; font-weight: 600; margin-bottom: 1rem; }
+        .desc-section p { color: #999; line-height: 1.8; margin-bottom: 1rem; }
+        .desc-section ul { color: #999; line-height: 2; padding-left: 1.5rem; }
+        .desc-section li { margin-bottom: 0.3rem; }
+        
+        .tech-stack { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.5rem; }
+        .tech-tag { background: #1a1a1a; border: 1px solid #2a2a2a; color: #888; padding: 0.3rem 0.8rem; border-radius: 6px; font-size: 0.8rem; font-family: 'JetBrains Mono', monospace; }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 2rem 0; }
+        .stat-card { background: #141414; border: 1px solid #2a2a2a; border-radius: 10px; padding: 1.25rem; text-align: center; }
+        .stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 1.8rem; font-weight: 700; color: #fff; }
+        .stat-label { font-size: 0.75rem; color: #666; margin-top: 0.3rem; }
+
+        .node-legend { display: flex; flex-wrap: wrap; gap: 1rem; margin: 1.5rem 0; padding: 1rem; background: #111; border-radius: 8px; }
+        .legend-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; color: #888; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+
         @media (max-width: 600px) {
             .showcase h1 { font-size: 1.6rem; }
-            .flow-split { grid-template-columns: 1fr; }
-            .stats-grid { grid-template-columns: 1fr; }
+            .flow-split, .flow-parallel { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .flow-node { min-width: unset; }
         }
     </style>
@@ -121,86 +132,119 @@
         
         <span class="badge">⚡ AUTOMATION SHOWCASE</span>
         <h1>Telegram → HubSpot Lead Bot</h1>
-        <p class="subtitle">Snap a business card or type a name — the bot creates the contact in HubSpot and assigns it to a salesperson. Built with n8n before AI could help with n8n.</p>
+        <p class="subtitle">
+            Snap a business card photo or type contact details in Telegram. An AI agent extracts the info via OCR, 
+            creates the contact in HubSpot with notes and file attachments, logs everything to Google Sheets, 
+            and backs up images to Google Drive. Built with n8n + GPT-4o-mini.
+        </p>
 
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-value">2</div>
-                <div class="stat-label">Workflows (main + sub)</div>
+                <div class="stat-label">Workflows</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">14</div>
-                <div class="stat-label">Automation nodes</div>
+                <div class="stat-value">16</div>
+                <div class="stat-label">Nodes</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">5</div>
+                <div class="stat-label">API Integrations</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value">&lt;30s</div>
-                <div class="stat-label">Card to CRM</div>
+                <div class="stat-label">Card → CRM</div>
             </div>
+        </div>
+
+        <div class="node-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div> Trigger</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#f43f5e"></div> Condition</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#a855f7"></div> Transform</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ec4899"></div> AI Agent</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div> API Call</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#4ade80"></div> Output</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#22d3ee"></div> Storage</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#06b6d4;border:1px dashed #06b6d4"></div> Sub-workflow</div>
         </div>
 
         <!-- Main Workflow -->
         <div class="flow-container">
-            <div class="flow-title">Main Workflow — Message Handler</div>
+            <div class="flow-title">Workflow 1 — Telegram Message Handler</div>
             <div class="flow">
-                <div style="display:flex;justify-content:center">
+                <div class="center">
                     <div class="flow-node trigger" style="text-align:center">
                         <div class="node-icon">📱</div>
                         <div class="node-label">Telegram Trigger</div>
-                        <div class="node-desc">Listens for messages in the sales bot chat</div>
+                        <div class="node-desc">Listens for messages + downloads attached photos</div>
                     </div>
                 </div>
                 <div class="flow-arrow">↓</div>
-                <div style="display:flex;justify-content:center">
+                <div class="center">
                     <div class="flow-node condition" style="text-align:center">
                         <div class="node-icon">🔀</div>
-                        <div class="node-label">Message Type?</div>
-                        <div class="node-desc">Check if photo or text message</div>
+                        <div class="node-label">Switch: Photo or Text?</div>
+                        <div class="node-desc">Routes based on message type</div>
                     </div>
                 </div>
                 
                 <div class="flow-split">
                     <div class="flow-branch">
-                        <span class="branch-label">📷 Photo</span>
+                        <span class="branch-label">📷 Photo (business card)</span>
                         <div class="flow-arrow">↓</div>
                         <div class="flow-node process">
-                            <div class="node-icon">📥</div>
-                            <div class="node-label">Download Image</div>
-                            <div class="node-desc">Fetch business card photo from Telegram</div>
+                            <div class="node-icon">⚙️</div>
+                            <div class="node-label">Code: Base64 Encode</div>
+                            <div class="node-desc">Convert image to base64, build OCR prompt with caption</div>
                         </div>
                         <div class="flow-arrow">↓</div>
-                        <div class="flow-node process">
-                            <div class="node-icon">🔍</div>
-                            <div class="node-label">OCR Extract</div>
-                            <div class="node-desc">Extract name, email, phone, company from card</div>
+                        <div class="flow-parallel" style="grid-template-columns: 1fr 1fr">
+                            <div class="flow-node action" style="text-align:center">
+                                <div class="node-icon">📤</div>
+                                <div class="node-label">Upload to HubSpot Files</div>
+                                <div class="node-desc">Store card image in /Messe-Uploads</div>
+                            </div>
+                            <div class="flow-node process" style="text-align:center">
+                                <div class="node-icon">🔗</div>
+                                <div class="node-label">Merge: Combine Data</div>
+                                <div class="node-desc">Join file ID + encoded image</div>
+                            </div>
                         </div>
                         <div class="flow-arrow">↓</div>
-                        <div class="flow-node process">
-                            <div class="node-icon">🧹</div>
-                            <div class="node-label">Parse & Clean</div>
-                            <div class="node-desc">Structure extracted data into contact fields</div>
+                        <div class="flow-node ai">
+                            <div class="node-icon">🤖</div>
+                            <div class="node-label">AI Agent: OCR + Extract</div>
+                            <div class="node-desc">Reads business card, extracts all contact fields, determines salutation, writes structured notes in German</div>
+                            <div class="node-model">GPT-4o-mini · Tool: Create Contact (sub-workflow)</div>
+                        </div>
+                        <div class="flow-arrow">↓</div>
+                        <div class="flow-node output" style="text-align:center">
+                            <div class="node-icon">✅</div>
+                            <div class="node-label">Telegram: Confirm</div>
+                            <div class="node-desc">"✅ Kontakt erstellt: [Name] ([Company])"</div>
+                        </div>
+                        <div class="flow-arrow">↓</div>
+                        <div class="flow-node storage" style="text-align:center">
+                            <div class="node-icon">💾</div>
+                            <div class="node-label">Google Drive Backup</div>
+                            <div class="node-desc">Archive card image to Screenshots folder</div>
                         </div>
                     </div>
                     <div class="flow-branch">
-                        <span class="branch-label">💬 Text</span>
+                        <span class="branch-label">💬 Text (typed contact)</span>
                         <div class="flow-arrow">↓</div>
-                        <div class="flow-node process">
-                            <div class="node-icon">✂️</div>
-                            <div class="node-label">Parse Text</div>
-                            <div class="node-desc">Extract contact info from typed message</div>
+                        <div class="flow-node ai">
+                            <div class="node-icon">🤖</div>
+                            <div class="node-label">AI Agent: Parse Text</div>
+                            <div class="node-desc">Extract contact info from typed message, create contact via tool</div>
+                            <div class="node-model">GPT-4o-mini · Tool: Create Contact (sub-workflow)</div>
                         </div>
-                    </div>
-                </div>
-                
-                <div class="flow-arrow">↓</div>
-                <div style="display:flex;justify-content:center">
-                    <div class="workflow-label">⚡ CALL SUB-WORKFLOW → Create Lead</div>
-                </div>
-                <div class="flow-arrow">↓</div>
-                <div style="display:flex;justify-content:center">
-                    <div class="flow-node output" style="text-align:center">
-                        <div class="node-icon">✅</div>
-                        <div class="node-label">Telegram Reply</div>
-                        <div class="node-desc">Confirm: "Created [Name] → assigned to [Sales Rep]"</div>
+                        <div class="flow-arrow">↓</div>
+                        <div class="flow-node output" style="text-align:center">
+                            <div class="node-icon">✅</div>
+                            <div class="node-label">Telegram: Confirm</div>
+                            <div class="node-desc">"✅ Kontakt erstellt: [Name]"</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -208,75 +252,53 @@
 
         <!-- Sub Workflow -->
         <div class="flow-container">
-            <div class="flow-title">Sub-Workflow — Lead Creator & Assigner</div>
+            <div class="flow-title">Workflow 2 — Contact Creator (Sub-workflow)</div>
             <div class="flow">
-                <div style="display:flex;justify-content:center">
+                <div class="center">
                     <div class="flow-node sub" style="text-align:center">
                         <div class="node-icon">⚡</div>
                         <div class="node-label">Receive Contact Data</div>
-                        <div class="node-desc">Name, email, phone, company from main workflow</div>
+                        <div class="node-desc">10 fields: name, company, phone, email, salutation, job title, file ID, notes</div>
                     </div>
                 </div>
                 <div class="flow-arrow">↓</div>
-                <div style="display:flex;justify-content:center">
-                    <div class="flow-node action" style="text-align:center">
-                        <div class="node-icon">🔎</div>
-                        <div class="node-label">HubSpot: Check Duplicate</div>
-                        <div class="node-desc">Search existing contacts by email/phone</div>
-                    </div>
-                </div>
-                <div class="flow-arrow">↓</div>
-                <div style="display:flex;justify-content:center">
-                    <div class="flow-node condition" style="text-align:center">
-                        <div class="node-icon">🔀</div>
-                        <div class="node-label">Exists?</div>
-                        <div class="node-desc">New contact or update existing</div>
-                    </div>
-                </div>
-
-                <div class="flow-split">
-                    <div class="flow-branch">
-                        <span class="branch-label">🆕 New</span>
-                        <div class="flow-arrow">↓</div>
-                        <div class="flow-node action">
-                            <div class="node-icon">➕</div>
-                            <div class="node-label">HubSpot: Create Contact</div>
-                            <div class="node-desc">Create new contact with all fields</div>
-                        </div>
-                    </div>
-                    <div class="flow-branch">
-                        <span class="branch-label">📝 Existing</span>
-                        <div class="flow-arrow">↓</div>
-                        <div class="flow-node action">
-                            <div class="node-icon">🔄</div>
-                            <div class="node-label">HubSpot: Update Contact</div>
-                            <div class="node-desc">Merge new info into existing record</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="flow-arrow">↓</div>
-                <div style="display:flex;justify-content:center">
+                <div class="center">
                     <div class="flow-node process" style="text-align:center">
-                        <div class="node-icon">🎯</div>
-                        <div class="node-label">Round-Robin Assignment</div>
-                        <div class="node-desc">Assign to next salesperson in rotation</div>
+                        <div class="node-icon">⚙️</div>
+                        <div class="node-label">Code: Map to HubSpot Properties</div>
+                        <div class="node-desc">Transform fields → HubSpot schema, tag source as trade show lead, set language to German</div>
                     </div>
                 </div>
                 <div class="flow-arrow">↓</div>
-                <div style="display:flex;justify-content:center">
+                <div class="center">
                     <div class="flow-node action" style="text-align:center">
                         <div class="node-icon">👤</div>
-                        <div class="node-label">HubSpot: Set Owner</div>
-                        <div class="node-desc">Assign contact to sales rep + create task</div>
+                        <div class="node-label">HubSpot: Create Contact</div>
+                        <div class="node-desc">POST /crm/v3/objects/contacts</div>
                     </div>
                 </div>
                 <div class="flow-arrow">↓</div>
-                <div style="display:flex;justify-content:center">
-                    <div class="flow-node output" style="text-align:center">
-                        <div class="node-icon">📤</div>
-                        <div class="node-label">Return Result</div>
-                        <div class="node-desc">Send contact ID + assignee back to main workflow</div>
+                <div class="center">
+                    <div class="flow-node action" style="text-align:center">
+                        <div class="node-icon">📝</div>
+                        <div class="node-label">HubSpot: Create Note</div>
+                        <div class="node-desc">Attach detailed notes + business card image to contact record</div>
+                    </div>
+                </div>
+                <div class="flow-arrow">↓</div>
+                <div class="center">
+                    <div class="flow-node action" style="text-align:center">
+                        <div class="node-icon">📌</div>
+                        <div class="node-label">HubSpot: Pin Note</div>
+                        <div class="node-desc">Pin the note as primary engagement on contact card</div>
+                    </div>
+                </div>
+                <div class="flow-arrow">↓</div>
+                <div class="center">
+                    <div class="flow-node storage" style="text-align:center">
+                        <div class="node-icon">📊</div>
+                        <div class="node-label">Google Sheets: Log Lead</div>
+                        <div class="node-desc">Append to leads spreadsheet with HubSpot link</div>
                     </div>
                 </div>
             </div>
@@ -286,45 +308,54 @@
         <div class="desc-section">
             <h2>What It Does</h2>
             <p>
-                At trade shows and networking events, salespeople meet dozens of prospects a day. 
-                Business cards pile up. Half get lost, the other half sit in a jacket pocket for weeks 
-                before someone manually types them into the CRM. By then, the lead is cold.
+                At trade shows, salespeople meet dozens of prospects a day. Business cards pile up. 
+                Half get lost, the other half sit in a jacket pocket for weeks before someone manually 
+                types them into the CRM. By then, the lead is cold.
             </p>
             <p>
-                This automation eliminates that gap entirely. A salesperson snaps a photo of a business 
-                card in Telegram — or just types the person's details — and within seconds, the contact 
-                exists in HubSpot with all fields populated, a sales owner assigned via round-robin, 
-                and a follow-up task created. The bot confirms everything right in the chat.
+                This automation eliminates that gap. A salesperson snaps a photo of a business card 
+                in Telegram — or just types the person's details — and within seconds:
             </p>
-            
-            <h2>How It Works</h2>
             <ul>
-                <li><strong>Telegram trigger</strong> watches for incoming messages in the sales team's bot</li>
-                <li><strong>Photo path:</strong> Downloads the image → runs OCR to extract name, email, phone, company → cleans and structures the data</li>
-                <li><strong>Text path:</strong> Parses typed contact info directly</li>
-                <li><strong>Sub-workflow</strong> handles the CRM logic: deduplication check → create or update → round-robin assignment → task creation</li>
-                <li><strong>Confirmation</strong> sent back to Telegram with the contact name and assigned salesperson</li>
+                <li>An <strong>AI agent</strong> reads the card via OCR and extracts every field</li>
+                <li>The card image is <strong>uploaded to HubSpot's file manager</strong> and backed up to Google Drive</li>
+                <li>A <strong>contact is created</strong> in HubSpot with all fields populated</li>
+                <li>A <strong>detailed note</strong> (in German) is created and <strong>pinned</strong> to the contact — with the business card attached</li>
+                <li>The lead is <strong>logged to a Google Sheet</strong> with a direct HubSpot link</li>
+                <li>A <strong>confirmation message</strong> is sent back in Telegram</li>
             </ul>
+
+            <h2>The AI Layer</h2>
+            <p>
+                Both paths (photo and text) use GPT-4o-mini as an AI agent with a detailed system prompt. 
+                The agent doesn't just extract data — it determines salutation from the name (Herr/Frau), 
+                reads handwritten notes on forms, translates captions from the salesperson, and writes 
+                structured notes formatted for the sales team. The AI calls the sub-workflow as a tool, 
+                passing all extracted fields directly into HubSpot.
+            </p>
 
             <h2>Why It Matters</h2>
             <p>
-                The average time from "met at a trade show" to "entered in CRM" dropped from 
-                <strong>3-5 days to under 30 seconds</strong>. No more lost cards. No more forgotten leads. 
-                No more "who was supposed to follow up with that person from the booth?" Every lead 
-                is captured, assigned, and actionable immediately.
+                Average time from "met at a trade show" to "in the CRM with notes and card attached" 
+                dropped from <strong>3–5 days to under 30 seconds</strong>. No lost cards. No forgotten leads. 
+                No "who was supposed to follow up?" Every lead is captured, documented, and actionable immediately.
             </p>
             <p>
-                Built in 2024 with n8n — before any AI tool had training data on the platform. 
+                Built in 2024–2025 with n8n — before any AI tool had training data on the platform. 
                 Pure documentation reading, trial and error, and stubbornness.
             </p>
 
             <div class="tech-stack">
                 <span class="tech-tag">n8n</span>
+                <span class="tech-tag">GPT-4o-mini</span>
                 <span class="tech-tag">Telegram Bot API</span>
-                <span class="tech-tag">OCR</span>
-                <span class="tech-tag">HubSpot API</span>
-                <span class="tech-tag">Round-Robin Logic</span>
-                <span class="tech-tag">Sub-Workflows</span>
+                <span class="tech-tag">HubSpot CRM API</span>
+                <span class="tech-tag">HubSpot Files API</span>
+                <span class="tech-tag">Google Sheets API</span>
+                <span class="tech-tag">Google Drive API</span>
+                <span class="tech-tag">OCR via Vision</span>
+                <span class="tech-tag">AI Tool Calling</span>
+                <span class="tech-tag">Sub-workflows</span>
             </div>
         </div>
     </div>
