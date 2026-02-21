@@ -10,164 +10,370 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../styles.css">
     <style>
-        body { background: #0a0a0a; color: #e0e0e0; }
-        .showcase { max-width: 920px; margin: 0 auto; padding: 6rem 2rem 4rem; }
-        .back-link { color: #666; text-decoration: none; font-size: 0.85rem; letter-spacing: 0.05em; }
-        .back-link:hover { color: #fff; }
-        .showcase h1 { font-family: 'Space Grotesk', sans-serif; font-size: 2.4rem; font-weight: 700; margin: 2rem 0 0.5rem; line-height: 1.2; }
-        .showcase .subtitle { color: #888; font-size: 1.1rem; margin-bottom: 2.5rem; line-height: 1.6; }
-        .badge { display: inline-block; background: #1a3a2a; color: #4ade80; padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; font-weight: 500; letter-spacing: 0.05em; margin-bottom: 1.5rem; }
-        
-        /* Flow diagram */
-        .flow-container { margin: 2.5rem 0; }
-        .flow-title { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #666; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.1em; }
-        
+        /* === BASED DESIGN RESET === */
+        * { border-radius: 0 !important; box-shadow: none; }
+
+        body { background: #0a0a0a; color: #e0e0e0; font-size: 16px; line-height: 1.5; }
+
+        /* =============================================
+           THREE-TIER SCALE SYSTEM
+           Tier 1: Display — clamp(3rem, 9vw, 140px)
+           Tier 2: Metadata — 11px, letterspaced, uppercase
+           Tier 3: Body — 16px
+           ============================================= */
+
+        /* === HERO ZONE — sparse, architectural (Law 2, 3, 4) === */
+        .hero-zone {
+            min-height: 90vh;
+            display: grid;
+            grid-template-columns: 65% 35%;
+            padding: 0;
+            position: relative;
+            border-bottom: 1px solid #1f1f23;
+        }
+
+        .hero-content {
+            padding: 20vh 5% 8vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+        }
+
+        .back-link {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: #555;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            margin-bottom: 3rem;
+        }
+        .back-link:hover { color: #c4f04d; }
+
+        .badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: #4ade80;
+            text-transform: uppercase;
+            letter-spacing: 0.3em;
+            margin-bottom: 2rem;
+        }
+
+        .hero-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(2.5rem, 7vw, 120px);
+            font-weight: 700;
+            line-height: 0.9;
+            text-transform: uppercase;
+            letter-spacing: -0.03em;
+            margin-bottom: 2.5rem;
+            color: #fff;
+        }
+        .hero-title .arrow { color: #c4f04d; }
+
+        .hero-sub {
+            font-size: 16px;
+            color: #888;
+            line-height: 1.7;
+            max-width: 520px;
+        }
+
+        /* Right column — stats stacked vertically (Law 4: counterweight) */
+        .hero-stats {
+            border-left: 1px solid #1f1f23;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 0;
+        }
+
+        .stat-block {
+            padding: 2.5rem 2rem;
+            border-top: 1px solid #1f1f23;
+        }
+        .stat-block:first-child { border-top: none; }
+
+        .stat-value {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(2.5rem, 4vw, 72px);
+            font-weight: 700;
+            color: #fff;
+            line-height: 1;
+        }
+        .stat-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            margin-top: 0.5rem;
+        }
+
+        /* === LEGEND — metadata tier, compressed === */
+        .legend-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            padding: 1.5rem 5%;
+            background: #0e0e0e;
+            border-bottom: 1px solid #1f1f23;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        .legend-dot { width: 10px; height: 10px; }
+
+        /* === FLOW DIAGRAM — dense zone (Law 2: density oscillation) === */
+        .flow-zone {
+            background: #080808;
+            padding: 6rem 5%;
+            border-bottom: 1px solid #1f1f23;
+        }
+
+        .flow-container { margin-bottom: 5rem; }
+        .flow-container:last-child { margin-bottom: 0; }
+
+        .flow-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #1a1a1a;
+        }
+
         .flow { display: flex; flex-direction: column; gap: 0; }
-        .flow-node { 
-            background: #141414; 
-            border: 1px solid #2a2a2a; 
-            border-radius: 12px; 
-            padding: 1rem 1.25rem; 
+
+        .flow-node {
+            background: #111;
+            border: 1px solid #2a2a2a;
+            padding: 1rem 1.25rem;
             min-width: 180px;
             position: relative;
-            transition: border-color 0.3s;
         }
         .flow-node:hover { border-color: #444; }
         .flow-node .node-icon { font-size: 1.3rem; margin-bottom: 0.4rem; }
         .flow-node .node-label { font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 0.9rem; color: #fff; }
-        .flow-node .node-desc { font-size: 0.75rem; color: #777; margin-top: 0.25rem; line-height: 1.4; }
+        .flow-node .node-desc { font-size: 0.75rem; color: #666; margin-top: 0.25rem; line-height: 1.4; }
         .flow-node .node-model { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: #a855f7; margin-top: 0.3rem; }
-        
-        .flow-node.trigger { border-color: #3b82f6; background: linear-gradient(135deg, #0c1929, #141414); }
-        .flow-node.process { border-color: #a855f7; background: linear-gradient(135deg, #1a0c29, #141414); }
-        .flow-node.ai { border-color: #ec4899; background: linear-gradient(135deg, #290c1e, #141414); }
-        .flow-node.action { border-color: #f59e0b; background: linear-gradient(135deg, #291a0c, #141414); }
-        .flow-node.output { border-color: #4ade80; background: linear-gradient(135deg, #0c2914, #141414); }
-        .flow-node.condition { border-color: #f43f5e; background: linear-gradient(135deg, #290c14, #141414); }
-        .flow-node.sub { border-color: #06b6d4; background: linear-gradient(135deg, #0c2429, #141414); border-style: dashed; }
-        .flow-node.storage { border-color: #22d3ee; background: linear-gradient(135deg, #0c2429, #141414); }
-        
-        .flow-arrow { 
-            display: flex; 
-            justify-content: center; 
-            padding: 0.4rem 0;
-            color: #333;
+
+        .flow-node.trigger { border-color: #3b82f6; border-left: 3px solid #3b82f6; }
+        .flow-node.process { border-color: #a855f7; border-left: 3px solid #a855f7; }
+        .flow-node.ai { border-color: #ec4899; border-left: 3px solid #ec4899; }
+        .flow-node.action { border-color: #f59e0b; border-left: 3px solid #f59e0b; }
+        .flow-node.output { border-color: #4ade80; border-left: 3px solid #4ade80; }
+        .flow-node.condition { border-color: #f43f5e; border-left: 3px solid #f43f5e; }
+        .flow-node.sub { border-color: #06b6d4; border-left: 3px solid #06b6d4; border-style: dashed; border-left-style: solid; }
+        .flow-node.storage { border-color: #22d3ee; border-left: 3px solid #22d3ee; }
+
+        .flow-arrow {
+            display: flex;
+            justify-content: center;
+            padding: 0.3rem 0;
+            color: #2a2a2a;
             font-size: 1.2rem;
         }
-        
+
         .flow-split {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 1rem;
+            gap: 1.5rem;
             margin: 0.5rem 0;
         }
-        .flow-branch { 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
+        .flow-branch {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             gap: 0;
         }
         .branch-label {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.7rem;
+            font-size: 11px;
             color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
             padding: 0.3rem 0.6rem;
-            border-radius: 4px;
-            background: #1a1a1a;
+            background: #111;
+            border: 1px solid #1f1f23;
             margin-bottom: 0.3rem;
         }
 
         .flow-parallel {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: 1fr 1fr;
             gap: 0.75rem;
-            margin: 0.5rem 0;
-        }
-        
-        .workflow-label {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.7rem;
-            color: #06b6d4;
-            background: #0c2429;
-            border: 1px dashed #06b6d4;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            text-align: center;
             margin: 0.5rem 0;
         }
 
         .center { display: flex; justify-content: center; }
 
-        /* Description section */
-        .desc-section { margin: 3rem 0; }
-        .desc-section h2 { font-family: 'Space Grotesk', sans-serif; font-size: 1.4rem; font-weight: 600; margin-bottom: 1rem; }
-        .desc-section p { color: #999; line-height: 1.8; margin-bottom: 1rem; }
-        .desc-section ul { color: #999; line-height: 2; padding-left: 1.5rem; }
-        .desc-section li { margin-bottom: 0.3rem; }
-        
-        .tech-stack { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.5rem; }
-        .tech-tag { background: #1a1a1a; border: 1px solid #2a2a2a; color: #888; padding: 0.3rem 0.8rem; border-radius: 6px; font-size: 0.8rem; font-family: 'JetBrains Mono', monospace; }
-        
-        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 2rem 0; }
-        .stat-card { background: #141414; border: 1px solid #2a2a2a; border-radius: 10px; padding: 1.25rem; text-align: center; }
-        .stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 1.8rem; font-weight: 700; color: #fff; }
-        .stat-label { font-size: 0.75rem; color: #666; margin-top: 0.3rem; }
+        /* === DESCRIPTION — sparse zone, asymmetric (Law 2, 4) === */
+        .desc-zone {
+            padding: 10rem 0;
+            border-bottom: 1px solid #1f1f23;
+        }
 
-        .node-legend { display: flex; flex-wrap: wrap; gap: 1rem; margin: 1.5rem 0; padding: 1rem; background: #111; border-radius: 8px; }
-        .legend-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; color: #888; }
-        .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+        .desc-block {
+            display: grid;
+            grid-template-columns: 35% 55%;
+            gap: 10%;
+            padding: 0 5%;
+            margin-bottom: 8rem;
+        }
+        .desc-block:last-child { margin-bottom: 0; }
 
-        @media (max-width: 600px) {
-            .showcase h1 { font-size: 1.6rem; }
+        .desc-block h2 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(1.5rem, 3vw, 48px);
+            font-weight: 700;
+            line-height: 1.1;
+            text-transform: uppercase;
+            letter-spacing: -0.02em;
+            color: #fff;
+            position: sticky;
+            top: 6rem;
+            align-self: start;
+        }
+
+        .desc-text p {
+            color: #888;
+            line-height: 1.8;
+            margin-bottom: 1.5rem;
+            font-size: 16px;
+        }
+
+        .desc-text ul {
+            color: #888;
+            line-height: 2;
+            padding-left: 1.5rem;
+        }
+        .desc-text li { margin-bottom: 0.3rem; }
+        .desc-text strong { color: #e0e0e0; }
+
+        /* === TECH STACK — dense strip, collision boundary (Law 7) === */
+        .tech-zone {
+            background: #0e0e0e;
+            padding: 4rem 5%;
+            border-top: 3px solid #c4f04d;
+        }
+
+        .tech-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            margin-bottom: 1.5rem;
+        }
+
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .tech-tag {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            color: #888;
+            padding: 0.4rem 1rem;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* === RESPONSIVE === */
+        @media (max-width: 768px) {
+            .hero-zone {
+                grid-template-columns: 1fr;
+                min-height: auto;
+            }
+            .hero-content { padding: 12vh 5% 4rem; }
+            .hero-stats {
+                border-left: none;
+                border-top: 1px solid #1f1f23;
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+            .stat-block {
+                flex: 1;
+                min-width: 120px;
+                border-top: none;
+                border-right: 1px solid #1f1f23;
+            }
+            .stat-block:last-child { border-right: none; }
+            .desc-block {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+            .desc-block h2 {
+                position: static;
+            }
             .flow-split, .flow-parallel { grid-template-columns: 1fr; }
-            .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .flow-node { min-width: unset; }
         }
     </style>
 </head>
 <body>
     <div class="grain"></div>
-    <div class="showcase">
-        <a href="../index.html#automations" class="back-link">← Back to Automations</a>
-        
-        <span class="badge">⚡ AUTOMATION SHOWCASE</span>
-        <h1>Telegram → HubSpot Lead Bot</h1>
-        <p class="subtitle">
-            Snap a business card photo or type contact details in Telegram. An AI agent extracts the info via OCR, 
-            creates the contact in HubSpot with notes and file attachments, logs everything to Google Sheets, 
-            and backs up images to Google Drive. Built with n8n + GPT-4o-mini.
-        </p>
 
-        <div class="stats-grid">
-            <div class="stat-card">
+    <!-- HERO — sparse, weight left (Law 4) -->
+    <div class="hero-zone">
+        <div class="hero-content">
+            <a href="../index.html#automations" class="back-link">← Back to Automations</a>
+            <div class="badge">⚡ Automation Showcase</div>
+            <h1 class="hero-title">
+                Telegram<br><span class="arrow">→</span> HubSpot<br>Lead Bot
+            </h1>
+            <p class="hero-sub">
+                Snap a business card photo or type contact details in Telegram. An AI agent extracts the info via OCR,
+                creates the contact in HubSpot with notes and file attachments, logs everything to Google Sheets,
+                and backs up images to Google Drive. Built with n8n + GPT-4o-mini.
+            </p>
+        </div>
+        <div class="hero-stats">
+            <div class="stat-block">
                 <div class="stat-value">2</div>
                 <div class="stat-label">Workflows</div>
             </div>
-            <div class="stat-card">
+            <div class="stat-block">
                 <div class="stat-value">16</div>
                 <div class="stat-label">Nodes</div>
             </div>
-            <div class="stat-card">
+            <div class="stat-block">
                 <div class="stat-value">5</div>
                 <div class="stat-label">API Integrations</div>
             </div>
-            <div class="stat-card">
+            <div class="stat-block">
                 <div class="stat-value">&lt;30s</div>
                 <div class="stat-label">Card → CRM</div>
             </div>
         </div>
+    </div>
 
-        <div class="node-legend">
-            <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div> Trigger</div>
-            <div class="legend-item"><div class="legend-dot" style="background:#f43f5e"></div> Condition</div>
-            <div class="legend-item"><div class="legend-dot" style="background:#a855f7"></div> Transform</div>
-            <div class="legend-item"><div class="legend-dot" style="background:#ec4899"></div> AI Agent</div>
-            <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div> API Call</div>
-            <div class="legend-item"><div class="legend-dot" style="background:#4ade80"></div> Output</div>
-            <div class="legend-item"><div class="legend-dot" style="background:#22d3ee"></div> Storage</div>
-            <div class="legend-item"><div class="legend-dot" style="background:#06b6d4;border:1px dashed #06b6d4"></div> Sub-workflow</div>
-        </div>
+    <!-- LEGEND — compressed metadata strip -->
+    <div class="legend-bar">
+        <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div> Trigger</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f43f5e"></div> Condition</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#a855f7"></div> Transform</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ec4899"></div> AI Agent</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div> API Call</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#4ade80"></div> Output</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#22d3ee"></div> Storage</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#06b6d4"></div> Sub-workflow</div>
+    </div>
 
+    <!-- FLOW DIAGRAM — dense zone (Law 2) -->
+    <div class="flow-zone">
         <!-- Main Workflow -->
         <div class="flow-container">
             <div class="flow-title">Workflow 1 — Telegram Message Handler</div>
@@ -187,7 +393,7 @@
                         <div class="node-desc">Routes based on message type</div>
                     </div>
                 </div>
-                
+
                 <div class="flow-split">
                     <div class="flow-branch">
                         <span class="branch-label">📷 Photo (business card)</span>
@@ -198,7 +404,7 @@
                             <div class="node-desc">Convert image to base64, build OCR prompt with caption</div>
                         </div>
                         <div class="flow-arrow">↓</div>
-                        <div class="flow-parallel" style="grid-template-columns: 1fr 1fr">
+                        <div class="flow-parallel">
                             <div class="flow-node action" style="text-align:center">
                                 <div class="node-icon">📤</div>
                                 <div class="node-label">Upload to HubSpot Files</div>
@@ -303,60 +509,76 @@
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Description -->
-        <div class="desc-section">
-            <h2>What It Does</h2>
-            <p>
-                At trade shows, salespeople meet dozens of prospects a day. Business cards pile up. 
-                Half get lost, the other half sit in a jacket pocket for weeks before someone manually 
-                types them into the CRM. By then, the lead is cold.
-            </p>
-            <p>
-                This automation eliminates that gap. A salesperson snaps a photo of a business card 
-                in Telegram — or just types the person's details — and within seconds:
-            </p>
-            <ul>
-                <li>An <strong>AI agent</strong> reads the card via OCR and extracts every field</li>
-                <li>The card image is <strong>uploaded to HubSpot's file manager</strong> and backed up to Google Drive</li>
-                <li>A <strong>contact is created</strong> in HubSpot with all fields populated</li>
-                <li>A <strong>detailed note</strong> (in German) is created and <strong>pinned</strong> to the contact — with the business card attached</li>
-                <li>The lead is <strong>logged to a Google Sheet</strong> with a direct HubSpot link</li>
-                <li>A <strong>confirmation message</strong> is sent back in Telegram</li>
-            </ul>
-
-            <h2>The AI Layer</h2>
-            <p>
-                Both paths (photo and text) use GPT-4o-mini as an AI agent with a detailed system prompt. 
-                The agent doesn't just extract data — it determines salutation from the name (Herr/Frau), 
-                reads handwritten notes on forms, translates captions from the salesperson, and writes 
-                structured notes formatted for the sales team. The AI calls the sub-workflow as a tool, 
-                passing all extracted fields directly into HubSpot.
-            </p>
-
-            <h2>Why It Matters</h2>
-            <p>
-                Average time from "met at a trade show" to "in the CRM with notes and card attached" 
-                dropped from <strong>3–5 days to under 30 seconds</strong>. No lost cards. No forgotten leads. 
-                No "who was supposed to follow up?" Every lead is captured, documented, and actionable immediately.
-            </p>
-            <p>
-                Built in 2024–2025 with n8n — before any AI tool had training data on the platform. 
-                Pure documentation reading, trial and error, and stubbornness.
-            </p>
-
-            <div class="tech-stack">
-                <span class="tech-tag">n8n</span>
-                <span class="tech-tag">GPT-4o-mini</span>
-                <span class="tech-tag">Telegram Bot API</span>
-                <span class="tech-tag">HubSpot CRM API</span>
-                <span class="tech-tag">HubSpot Files API</span>
-                <span class="tech-tag">Google Sheets API</span>
-                <span class="tech-tag">Google Drive API</span>
-                <span class="tech-tag">OCR via Vision</span>
-                <span class="tech-tag">AI Tool Calling</span>
-                <span class="tech-tag">Sub-workflows</span>
+    <!-- DESCRIPTION — sparse zone, asymmetric grid (Law 2, 4) -->
+    <div class="desc-zone">
+        <div class="desc-block">
+            <h2>What<br>It Does</h2>
+            <div class="desc-text">
+                <p>
+                    At trade shows, salespeople meet dozens of prospects a day. Business cards pile up.
+                    Half get lost, the other half sit in a jacket pocket for weeks before someone manually
+                    types them into the CRM. By then, the lead is cold.
+                </p>
+                <p>
+                    This automation eliminates that gap. A salesperson snaps a photo of a business card
+                    in Telegram — or just types the person's details — and within seconds:
+                </p>
+                <ul>
+                    <li>An <strong>AI agent</strong> reads the card via OCR and extracts every field</li>
+                    <li>The card image is <strong>uploaded to HubSpot's file manager</strong> and backed up to Google Drive</li>
+                    <li>A <strong>contact is created</strong> in HubSpot with all fields populated</li>
+                    <li>A <strong>detailed note</strong> (in German) is created and <strong>pinned</strong> to the contact — with the business card attached</li>
+                    <li>The lead is <strong>logged to a Google Sheet</strong> with a direct HubSpot link</li>
+                    <li>A <strong>confirmation message</strong> is sent back in Telegram</li>
+                </ul>
             </div>
+        </div>
+
+        <div class="desc-block">
+            <h2>The AI<br>Layer</h2>
+            <div class="desc-text">
+                <p>
+                    Both paths (photo and text) use GPT-4o-mini as an AI agent with a detailed system prompt.
+                    The agent doesn't just extract data — it determines salutation from the name (Herr/Frau),
+                    reads handwritten notes on forms, translates captions from the salesperson, and writes
+                    structured notes formatted for the sales team. The AI calls the sub-workflow as a tool,
+                    passing all extracted fields directly into HubSpot.
+                </p>
+            </div>
+        </div>
+
+        <div class="desc-block">
+            <h2>Why It<br>Matters</h2>
+            <div class="desc-text">
+                <p>
+                    Average time from "met at a trade show" to "in the CRM with notes and card attached"
+                    dropped from <strong>3–5 days to under 30 seconds</strong>. No lost cards. No forgotten leads.
+                    No "who was supposed to follow up?" Every lead is captured, documented, and actionable immediately.
+                </p>
+                <p>
+                    Built in 2024–2025 with n8n — before any AI tool had training data on the platform.
+                    Pure documentation reading, trial and error, and stubbornness.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- TECH STACK — collision boundary with accent rule (Law 7) -->
+    <div class="tech-zone">
+        <div class="tech-label">Tech Stack</div>
+        <div class="tech-stack">
+            <span class="tech-tag">n8n</span>
+            <span class="tech-tag">GPT-4o-mini</span>
+            <span class="tech-tag">Telegram Bot API</span>
+            <span class="tech-tag">HubSpot CRM API</span>
+            <span class="tech-tag">HubSpot Files API</span>
+            <span class="tech-tag">Google Sheets API</span>
+            <span class="tech-tag">Google Drive API</span>
+            <span class="tech-tag">OCR via Vision</span>
+            <span class="tech-tag">AI Tool Calling</span>
+            <span class="tech-tag">Sub-workflows</span>
         </div>
     </div>
 </body>
