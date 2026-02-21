@@ -10,170 +10,180 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../styles.css">
     <style>
-        /* === BASED DESIGN RESET === */
-        * { border-radius: 0 !important; box-shadow: none; }
+        /* BASED DESIGN RESET */
+        * { border-radius: 0 !important; }
+        section, div, header, footer { transition: none; }
+        * { box-shadow: none; }
 
-        body { background: #0a0a0a; color: #e0e0e0; font-size: 16px; line-height: 1.5; }
+        body { background: #0a0a0a; color: #e0e0e0; font-size: 16px; line-height: 1.4; }
 
-        /* =============================================
-           THREE-TIER SCALE SYSTEM
-           Tier 1: Display — clamp(3rem, 9vw, 140px)
-           Tier 2: Metadata — 11px, letterspaced, uppercase
-           Tier 3: Body — 16px
-           ============================================= */
+        /* THREE TIERS ONLY */
+        .tier-display { font-family: 'Space Grotesk', sans-serif; font-weight: 700; text-transform: uppercase; line-height: 0.85; letter-spacing: -0.02em; }
+        .tier-meta { font-size: 11px; text-transform: uppercase; letter-spacing: 0.2em; font-weight: 500; }
+        .tier-body { font-size: 16px; line-height: 1.6; }
 
-        /* === HERO ZONE — sparse, architectural (Law 2, 3, 4) === */
-        .hero-zone {
-            min-height: 90vh;
-            display: grid;
-            grid-template-columns: 65% 35%;
-            padding: 0;
-            position: relative;
-            border-bottom: 1px solid #1f1f23;
-        }
-
-        .hero-content {
-            padding: 20vh 5% 8vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-        }
-
+        /* BACK LINK — metadata tier */
         .back-link {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 11px;
+            display: inline-block;
             color: #555;
             text-decoration: none;
-            text-transform: uppercase;
-            letter-spacing: 0.15em;
-            margin-bottom: 3rem;
-        }
-        .back-link:hover { color: #c4f04d; }
-
-        .badge {
-            font-family: 'JetBrains Mono', monospace;
             font-size: 11px;
-            color: #4ade80;
             text-transform: uppercase;
-            letter-spacing: 0.3em;
-            margin-bottom: 2rem;
+            letter-spacing: 0.2em;
+            padding: 2.5rem 5%;
         }
+        .back-link:hover { color: #fff; }
 
-        .hero-title {
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: clamp(2.5rem, 7vw, 120px);
-            font-weight: 700;
-            line-height: 0.9;
-            text-transform: uppercase;
-            letter-spacing: -0.03em;
-            margin-bottom: 2.5rem;
-            color: #fff;
-        }
-        .hero-title .arrow { color: #c4f04d; }
-
-        .hero-sub {
-            font-size: 16px;
-            color: #888;
-            line-height: 1.7;
-            max-width: 520px;
-        }
-
-        /* Right column — stats stacked vertically (Law 4: counterweight) */
-        .hero-stats {
-            border-left: 1px solid #1f1f23;
+        /* HERO — architectural type, asymmetric */
+        .hero {
+            padding: 0 5% 0;
+            position: relative;
+            overflow: hidden;
+            min-height: 90vh;
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
-            padding: 0;
+            padding-bottom: 5vh;
+        }
+        .hero-ghost {
+            position: absolute;
+            top: 50%;
+            left: -3%;
+            transform: translateY(-50%);
+            font-size: 30vw;
+            font-weight: 900;
+            font-family: 'Space Grotesk', sans-serif;
+            color: rgba(255, 255, 255, 0.025);
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 0;
+            line-height: 0.75;
+            text-transform: uppercase;
+        }
+        .badge {
+            display: inline-block;
+            background: #0d2818;
+            color: #4ade80;
+            padding: 0.6rem 1.5rem;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            margin-bottom: 2rem;
+            position: relative;
+            z-index: 2;
+        }
+        .hero h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(3rem, 9vw, 10rem);
+            font-weight: 700;
+            text-transform: uppercase;
+            line-height: 0.88;
+            letter-spacing: -0.03em;
+            position: relative;
+            z-index: 2;
+            max-width: 90%;
+        }
+        .hero h1 .arrow { color: #3b82f6; }
+        .hero-subtitle {
+            max-width: 52ch;
+            color: #777;
+            font-size: 16px;
+            line-height: 1.7;
+            margin-top: 2.5rem;
+            position: relative;
+            z-index: 2;
         }
 
-        .stat-block {
-            padding: 2.5rem 2rem;
-            border-top: 1px solid #1f1f23;
+        /* STATS — monumental numbers, collision with hero */
+        .stats-zone {
+            background: #fff;
+            color: #000;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0;
+            /* Hard collision — no margin, no border, no gradient */
         }
-        .stat-block:first-child { border-top: none; }
-
+        .stat-cell {
+            padding: 4rem 2rem;
+            border-right: 1px solid #e0e0e0;
+            text-align: left;
+        }
+        .stat-cell:last-child { border-right: none; }
         .stat-value {
             font-family: 'Space Grotesk', sans-serif;
-            font-size: clamp(2.5rem, 4vw, 72px);
+            font-size: clamp(3rem, 5vw, 5rem);
             font-weight: 700;
-            color: #fff;
+            color: #000;
             line-height: 1;
         }
         .stat-label {
-            font-family: 'JetBrains Mono', monospace;
             font-size: 11px;
-            color: #555;
             text-transform: uppercase;
-            letter-spacing: 0.15em;
-            margin-top: 0.5rem;
+            letter-spacing: 0.2em;
+            color: #999;
+            margin-top: 0.75rem;
         }
 
-        /* === LEGEND — metadata tier, compressed === */
+        /* LEGEND — dense, compressed */
         .legend-bar {
+            background: #111;
             display: flex;
             flex-wrap: wrap;
             gap: 1.5rem;
-            padding: 1.5rem 5%;
-            background: #0e0e0e;
-            border-bottom: 1px solid #1f1f23;
+            padding: 1.2rem 5%;
+            border-bottom: 1px solid #1a1a1a;
         }
         .legend-item {
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 11px;
-            color: #555;
+            font-size: 10px;
             text-transform: uppercase;
-            letter-spacing: 0.1em;
+            letter-spacing: 0.15em;
+            color: #666;
         }
         .legend-dot { width: 10px; height: 10px; }
 
-        /* === FLOW DIAGRAM — dense zone (Law 2: density oscillation) === */
+        /* FLOW DIAGRAMS — dense, compressed, sharp */
         .flow-zone {
-            background: #080808;
-            padding: 6rem 5%;
-            border-bottom: 1px solid #1f1f23;
+            background: #0a0a0a;
+            padding: 5rem 5% 4rem;
         }
-
         .flow-container { margin-bottom: 5rem; }
         .flow-container:last-child { margin-bottom: 0; }
-
         .flow-title {
             font-family: 'JetBrains Mono', monospace;
             font-size: 11px;
             color: #555;
             text-transform: uppercase;
             letter-spacing: 0.2em;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
             border-bottom: 1px solid #1a1a1a;
         }
-
         .flow { display: flex; flex-direction: column; gap: 0; }
-
         .flow-node {
             background: #111;
-            border: 1px solid #2a2a2a;
+            border: 1px solid #222;
             padding: 1rem 1.25rem;
             min-width: 180px;
             position: relative;
         }
-        .flow-node:hover { border-color: #444; }
         .flow-node .node-icon { font-size: 1.3rem; margin-bottom: 0.4rem; }
         .flow-node .node-label { font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 0.9rem; color: #fff; }
         .flow-node .node-desc { font-size: 0.75rem; color: #666; margin-top: 0.25rem; line-height: 1.4; }
         .flow-node .node-model { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: #a855f7; margin-top: 0.3rem; }
 
-        .flow-node.trigger { border-color: #3b82f6; border-left: 3px solid #3b82f6; }
-        .flow-node.process { border-color: #a855f7; border-left: 3px solid #a855f7; }
-        .flow-node.ai { border-color: #ec4899; border-left: 3px solid #ec4899; }
-        .flow-node.action { border-color: #f59e0b; border-left: 3px solid #f59e0b; }
-        .flow-node.output { border-color: #4ade80; border-left: 3px solid #4ade80; }
-        .flow-node.condition { border-color: #f43f5e; border-left: 3px solid #f43f5e; }
-        .flow-node.sub { border-color: #06b6d4; border-left: 3px solid #06b6d4; border-style: dashed; border-left-style: solid; }
-        .flow-node.storage { border-color: #22d3ee; border-left: 3px solid #22d3ee; }
+        /* Node type colors — HARDER zoning */
+        .flow-node.trigger { border-left: 3px solid #3b82f6; background: #0c1929; }
+        .flow-node.process { border-left: 3px solid #a855f7; background: #1a0c29; }
+        .flow-node.ai { border-left: 3px solid #ec4899; background: #290c1e; }
+        .flow-node.action { border-left: 3px solid #f59e0b; background: #291a0c; }
+        .flow-node.output { border-left: 3px solid #4ade80; background: #0c2914; }
+        .flow-node.condition { border-left: 3px solid #f43f5e; background: #290c14; }
+        .flow-node.sub { border-left: 3px solid #06b6d4; background: #0c2429; border-style: solid; border-left-style: dashed; }
+        .flow-node.storage { border-left: 3px solid #22d3ee; background: #0c2429; }
 
         .flow-arrow {
             display: flex;
@@ -182,185 +192,252 @@
             color: #2a2a2a;
             font-size: 1.2rem;
         }
-
         .flow-split {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
-            margin: 0.5rem 0;
+            gap: 2px;
+            margin: 0;
         }
         .flow-branch {
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 0;
+            background: #080808;
+            padding: 1rem 0.5rem;
         }
         .branch-label {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 11px;
+            font-size: 10px;
             color: #555;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.1em;
             padding: 0.3rem 0.6rem;
             background: #111;
-            border: 1px solid #1f1f23;
-            margin-bottom: 0.3rem;
+            margin-bottom: 0.5rem;
         }
-
         .flow-parallel {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 0.75rem;
-            margin: 0.5rem 0;
+            gap: 2px;
+            margin: 0;
         }
-
         .center { display: flex; justify-content: center; }
 
-        /* === DESCRIPTION — sparse zone, asymmetric (Law 2, 4) === */
-        .desc-zone {
-            padding: 10rem 0;
-            border-bottom: 1px solid #1f1f23;
+        /* COLLISION ZONE — description sections */
+        .content-collision {
+            background: #fff;
+            color: #000;
+            /* Hard collision with flow zone above — no space, no mediator */
         }
-
-        .desc-block {
+        .content-grid {
             display: grid;
-            grid-template-columns: 35% 55%;
-            gap: 10%;
-            padding: 0 5%;
-            margin-bottom: 8rem;
+            grid-template-columns: 5fr 4fr;
+            gap: 0;
+            min-height: 60vh;
         }
-        .desc-block:last-child { margin-bottom: 0; }
-
-        .desc-block h2 {
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: clamp(1.5rem, 3vw, 48px);
-            font-weight: 700;
-            line-height: 1.1;
+        .content-mass {
+            padding: 6rem 4rem 6rem 5%;
+            border-right: 1px solid #e0e0e0;
+        }
+        .content-breath {
+            padding: 6rem 5% 6rem 4rem;
+        }
+        .section-label {
+            font-size: 10px;
             text-transform: uppercase;
+            letter-spacing: 0.3em;
+            font-weight: 600;
+            color: #999;
+            margin-bottom: 2rem;
+        }
+        .content-collision h2 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(2rem, 4vw, 3.5rem);
+            font-weight: 700;
+            text-transform: uppercase;
+            line-height: 0.95;
             letter-spacing: -0.02em;
-            color: #fff;
-            position: sticky;
-            top: 6rem;
-            align-self: start;
-        }
-
-        .desc-text p {
-            color: #888;
-            line-height: 1.8;
             margin-bottom: 1.5rem;
-            font-size: 16px;
+            color: #000;
         }
-
-        .desc-text ul {
-            color: #888;
+        .content-collision p {
+            color: #555;
+            line-height: 1.8;
+            margin-bottom: 1rem;
+            max-width: 50ch;
+        }
+        .content-collision ul {
+            color: #555;
             line-height: 2;
             padding-left: 1.5rem;
         }
-        .desc-text li { margin-bottom: 0.3rem; }
-        .desc-text strong { color: #e0e0e0; }
+        .content-collision li { margin-bottom: 0.3rem; }
+        .content-collision strong { color: #000; }
 
-        /* === TECH STACK — dense strip, collision boundary (Law 7) === */
-        .tech-zone {
-            background: #0e0e0e;
-            padding: 4rem 5%;
-            border-top: 3px solid #c4f04d;
+        /* AI LAYER — dark zone, collision with white */
+        .ai-zone {
+            background: #0a0a0a;
+            color: #e0e0e0;
+            padding: 6rem 5%;
+            position: relative;
+            overflow: hidden;
+        }
+        .ai-zone .section-label { color: #ec4899; }
+        .ai-zone h2 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(2rem, 4vw, 3.5rem);
+            font-weight: 700;
+            text-transform: uppercase;
+            line-height: 0.95;
+            letter-spacing: -0.02em;
+            margin-bottom: 1.5rem;
+            color: #fff;
+        }
+        .ai-zone p {
+            color: #888;
+            line-height: 1.8;
+            margin-bottom: 1rem;
+            max-width: 55ch;
+        }
+        .ai-ghost {
+            position: absolute;
+            top: 50%;
+            right: -5%;
+            transform: translateY(-50%);
+            font-size: 20vw;
+            font-weight: 900;
+            font-family: 'Space Grotesk', sans-serif;
+            color: rgba(236, 72, 153, 0.04);
+            white-space: nowrap;
+            pointer-events: none;
+            line-height: 0.8;
+            text-transform: uppercase;
         }
 
-        .tech-label {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 11px;
+        /* WHY IT MATTERS — white, sparse, pressurized */
+        .impact-zone {
+            background: #fff;
+            color: #000;
+            min-height: 60vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 8rem 5%;
+        }
+        .impact-zone .section-label { color: #999; }
+        .impact-zone h2 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(2rem, 4vw, 3.5rem);
+            font-weight: 700;
+            text-transform: uppercase;
+            line-height: 0.95;
+            letter-spacing: -0.02em;
+            margin-bottom: 1.5rem;
+            color: #000;
+        }
+        .impact-zone p {
             color: #555;
+            line-height: 1.8;
+            margin-bottom: 1rem;
+            max-width: 50ch;
+        }
+        .impact-zone strong { color: #000; }
+        .impact-stat {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(3rem, 6vw, 6rem);
+            font-weight: 700;
+            line-height: 1;
+            color: #000;
+            margin: 2rem 0 1rem;
+        }
+        .impact-stat-label {
+            font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 0.2em;
-            margin-bottom: 1.5rem;
+            color: #999;
         }
 
-        .tech-stack {
+        /* TECH STACK — dense bar, collision with impact zone */
+        .tech-zone {
+            background: #111;
+            padding: 3rem 5%;
             display: flex;
             flex-wrap: wrap;
-            gap: 0.5rem;
+            gap: 2px;
         }
         .tech-tag {
             background: #1a1a1a;
             border: 1px solid #2a2a2a;
             color: #888;
-            padding: 0.4rem 1rem;
-            font-size: 11px;
+            padding: 0.5rem 1rem;
+            font-size: 10px;
             font-family: 'JetBrains Mono', monospace;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.1em;
         }
 
-        /* === RESPONSIVE === */
+        /* RESPONSIVE */
         @media (max-width: 768px) {
-            .hero-zone {
-                grid-template-columns: 1fr;
-                min-height: auto;
-            }
-            .hero-content { padding: 12vh 5% 4rem; }
-            .hero-stats {
-                border-left: none;
-                border-top: 1px solid #1f1f23;
-                flex-direction: row;
-                flex-wrap: wrap;
-            }
-            .stat-block {
-                flex: 1;
-                min-width: 120px;
-                border-top: none;
-                border-right: 1px solid #1f1f23;
-            }
-            .stat-block:last-child { border-right: none; }
-            .desc-block {
-                grid-template-columns: 1fr;
-                gap: 2rem;
-            }
-            .desc-block h2 {
-                position: static;
-            }
-            .flow-split, .flow-parallel { grid-template-columns: 1fr; }
+            .hero { min-height: 70vh; }
+            .hero h1 { max-width: 100%; }
+            .stats-zone { grid-template-columns: repeat(2, 1fr); }
+            .stat-cell { padding: 2.5rem 1.5rem; }
+            .stat-cell:nth-child(2) { border-right: none; }
+            .stat-cell:nth-child(1), .stat-cell:nth-child(2) { border-bottom: 1px solid #e0e0e0; }
+            .content-grid { grid-template-columns: 1fr; }
+            .content-mass { border-right: none; border-bottom: 1px solid #e0e0e0; padding: 4rem 5%; }
+            .content-breath { padding: 4rem 5%; }
+            .flow-split { grid-template-columns: 1fr; }
+            .flow-parallel { grid-template-columns: 1fr; }
+            .flow-zone { padding: 3rem 4%; }
             .flow-node { min-width: unset; }
+        }
+        @media (max-width: 480px) {
+            .stats-zone { grid-template-columns: 1fr 1fr; }
+            .hero { min-height: 60vh; padding-bottom: 3rem; }
         }
     </style>
 </head>
 <body>
     <div class="grain"></div>
 
-    <!-- HERO — sparse, weight left (Law 4) -->
-    <div class="hero-zone">
-        <div class="hero-content">
-            <a href="../index.html#automations" class="back-link">← Back to Automations</a>
-            <div class="badge">⚡ Automation Showcase</div>
-            <h1 class="hero-title">
-                Telegram<br><span class="arrow">→</span> HubSpot<br>Lead Bot
-            </h1>
-            <p class="hero-sub">
-                Snap a business card photo or type contact details in Telegram. An AI agent extracts the info via OCR,
-                creates the contact in HubSpot with notes and file attachments, logs everything to Google Sheets,
-                and backs up images to Google Drive. Built with n8n + GPT-4o-mini.
-            </p>
-        </div>
-        <div class="hero-stats">
-            <div class="stat-block">
-                <div class="stat-value">2</div>
-                <div class="stat-label">Workflows</div>
-            </div>
-            <div class="stat-block">
-                <div class="stat-value">16</div>
-                <div class="stat-label">Nodes</div>
-            </div>
-            <div class="stat-block">
-                <div class="stat-value">5</div>
-                <div class="stat-label">API Integrations</div>
-            </div>
-            <div class="stat-block">
-                <div class="stat-value">&lt;30s</div>
-                <div class="stat-label">Card → CRM</div>
-            </div>
-        </div>
-    </div>
+    <!-- BACK LINK — metadata tier -->
+    <a href="../index.html#automations" class="back-link">← Back to Automations</a>
 
-    <!-- LEGEND — compressed metadata strip -->
+    <!-- HERO — architectural type -->
+    <section class="hero">
+        <div class="hero-ghost" aria-hidden="true">HUBSPOT</div>
+        <span class="badge">⚡ AUTOMATION SHOWCASE</span>
+        <h1>Telegram <span class="arrow">→</span> HubSpot Lead&nbsp;Bot</h1>
+        <p class="hero-subtitle">
+            Snap a business card photo or type contact details in Telegram. An AI agent extracts the info via OCR, 
+            creates the contact in HubSpot with notes and file attachments, logs everything to Google Sheets, 
+            and backs up images to Google Drive. Built with n8n + GPT-4o-mini.
+        </p>
+    </section>
+
+    <!-- STATS — monumental, hard collision -->
+    <section class="stats-zone">
+        <div class="stat-cell">
+            <div class="stat-value">2</div>
+            <div class="stat-label">Workflows</div>
+        </div>
+        <div class="stat-cell">
+            <div class="stat-value">16</div>
+            <div class="stat-label">Nodes</div>
+        </div>
+        <div class="stat-cell">
+            <div class="stat-value">5</div>
+            <div class="stat-label">API Integrations</div>
+        </div>
+        <div class="stat-cell">
+            <div class="stat-value">&lt;30s</div>
+            <div class="stat-label">Card → CRM</div>
+        </div>
+    </section>
+
+    <!-- LEGEND — compressed metadata -->
     <div class="legend-bar">
         <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div> Trigger</div>
         <div class="legend-item"><div class="legend-dot" style="background:#f43f5e"></div> Condition</div>
@@ -369,11 +446,11 @@
         <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div> API Call</div>
         <div class="legend-item"><div class="legend-dot" style="background:#4ade80"></div> Output</div>
         <div class="legend-item"><div class="legend-dot" style="background:#22d3ee"></div> Storage</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#06b6d4"></div> Sub-workflow</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#06b6d4;border:1px dashed #06b6d4"></div> Sub-workflow</div>
     </div>
 
-    <!-- FLOW DIAGRAM — dense zone (Law 2) -->
-    <div class="flow-zone">
+    <!-- FLOW DIAGRAMS — dense zone -->
+    <section class="flow-zone">
         <!-- Main Workflow -->
         <div class="flow-container">
             <div class="flow-title">Workflow 1 — Telegram Message Handler</div>
@@ -509,23 +586,27 @@
                 </div>
             </div>
         </div>
-    </div>
+    </section>
 
-    <!-- DESCRIPTION — sparse zone, asymmetric grid (Law 2, 4) -->
-    <div class="desc-zone">
-        <div class="desc-block">
-            <h2>What<br>It Does</h2>
-            <div class="desc-text">
+    <!-- WHAT IT DOES — white zone, hard collision with dark flow -->
+    <section class="content-collision">
+        <div class="content-grid">
+            <div class="content-mass">
+                <div class="section-label">What It Does</div>
+                <h2>From Jacket Pocket to&nbsp;CRM</h2>
                 <p>
-                    At trade shows, salespeople meet dozens of prospects a day. Business cards pile up.
-                    Half get lost, the other half sit in a jacket pocket for weeks before someone manually
+                    At trade shows, salespeople meet dozens of prospects a day. Business cards pile up. 
+                    Half get lost, the other half sit in a jacket pocket for weeks before someone manually 
                     types them into the CRM. By then, the lead is cold.
                 </p>
                 <p>
-                    This automation eliminates that gap. A salesperson snaps a photo of a business card
+                    This automation eliminates that gap. A salesperson snaps a photo of a business card 
                     in Telegram — or just types the person's details — and within seconds:
                 </p>
-                <ul>
+            </div>
+            <div class="content-breath">
+                <div class="section-label" style="color: transparent;">—</div>
+                <ul style="margin-top: calc(clamp(2rem, 4vw, 3.5rem) * 0.95 + 1.5rem);">
                     <li>An <strong>AI agent</strong> reads the card via OCR and extracts every field</li>
                     <li>The card image is <strong>uploaded to HubSpot's file manager</strong> and backed up to Google Drive</li>
                     <li>A <strong>contact is created</strong> in HubSpot with all fields populated</li>
@@ -535,51 +616,49 @@
                 </ul>
             </div>
         </div>
+    </section>
 
-        <div class="desc-block">
-            <h2>The AI<br>Layer</h2>
-            <div class="desc-text">
-                <p>
-                    Both paths (photo and text) use GPT-4o-mini as an AI agent with a detailed system prompt.
-                    The agent doesn't just extract data — it determines salutation from the name (Herr/Frau),
-                    reads handwritten notes on forms, translates captions from the salesperson, and writes
-                    structured notes formatted for the sales team. The AI calls the sub-workflow as a tool,
-                    passing all extracted fields directly into HubSpot.
-                </p>
-            </div>
-        </div>
+    <!-- AI LAYER — dark zone, collision -->
+    <section class="ai-zone">
+        <div class="ai-ghost" aria-hidden="true">GPT-4o</div>
+        <div class="section-label">The AI Layer</div>
+        <h2>Not Just OCR</h2>
+        <p>
+            Both paths (photo and text) use GPT-4o-mini as an AI agent with a detailed system prompt. 
+            The agent doesn't just extract data — it determines salutation from the name (Herr/Frau), 
+            reads handwritten notes on forms, translates captions from the salesperson, and writes 
+            structured notes formatted for the sales team. The AI calls the sub-workflow as a tool, 
+            passing all extracted fields directly into HubSpot.
+        </p>
+    </section>
 
-        <div class="desc-block">
-            <h2>Why It<br>Matters</h2>
-            <div class="desc-text">
-                <p>
-                    Average time from "met at a trade show" to "in the CRM with notes and card attached"
-                    dropped from <strong>3–5 days to under 30 seconds</strong>. No lost cards. No forgotten leads.
-                    No "who was supposed to follow up?" Every lead is captured, documented, and actionable immediately.
-                </p>
-                <p>
-                    Built in 2024–2025 with n8n — before any AI tool had training data on the platform.
-                    Pure documentation reading, trial and error, and stubbornness.
-                </p>
-            </div>
-        </div>
-    </div>
+    <!-- WHY IT MATTERS — white, sparse, pressurized -->
+    <section class="impact-zone">
+        <div class="section-label">Why It Matters</div>
+        <div class="impact-stat">3–5 days → 30s</div>
+        <div class="impact-stat-label">Average time from trade show meeting to CRM entry</div>
+        <p style="margin-top: 2.5rem;">
+            No lost cards. No forgotten leads. 
+            No "who was supposed to follow up?" Every lead is captured, documented, and actionable immediately.
+        </p>
+        <p>
+            Built in 2024–2025 with n8n — before any AI tool had training data on the platform. 
+            Pure documentation reading, trial and error, and stubbornness.
+        </p>
+    </section>
 
-    <!-- TECH STACK — collision boundary with accent rule (Law 7) -->
-    <div class="tech-zone">
-        <div class="tech-label">Tech Stack</div>
-        <div class="tech-stack">
-            <span class="tech-tag">n8n</span>
-            <span class="tech-tag">GPT-4o-mini</span>
-            <span class="tech-tag">Telegram Bot API</span>
-            <span class="tech-tag">HubSpot CRM API</span>
-            <span class="tech-tag">HubSpot Files API</span>
-            <span class="tech-tag">Google Sheets API</span>
-            <span class="tech-tag">Google Drive API</span>
-            <span class="tech-tag">OCR via Vision</span>
-            <span class="tech-tag">AI Tool Calling</span>
-            <span class="tech-tag">Sub-workflows</span>
-        </div>
-    </div>
+    <!-- TECH STACK — dense bar -->
+    <section class="tech-zone">
+        <span class="tech-tag">n8n</span>
+        <span class="tech-tag">GPT-4o-mini</span>
+        <span class="tech-tag">Telegram Bot API</span>
+        <span class="tech-tag">HubSpot CRM API</span>
+        <span class="tech-tag">HubSpot Files API</span>
+        <span class="tech-tag">Google Sheets API</span>
+        <span class="tech-tag">Google Drive API</span>
+        <span class="tech-tag">OCR via Vision</span>
+        <span class="tech-tag">AI Tool Calling</span>
+        <span class="tech-tag">Sub-workflows</span>
+    </section>
 </body>
 </html>
